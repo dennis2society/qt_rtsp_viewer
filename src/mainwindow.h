@@ -1,16 +1,16 @@
 #ifndef MAINWINDOW_H
 #define MAINWINDOW_H
 
-#include <QMainWindow>
-#include <QLabel>
-#include <QPushButton>
-#include <QComboBox>
-#include <QLineEdit>
-#include <QCheckBox>
-#include <QSettings>
-#include "videoplayer.h"
 #include "effectssidebar.h"
 #include "videoeffects.h"
+#include "videoplayer.h"
+#include <QCheckBox>
+#include <QComboBox>
+#include <QLabel>
+#include <QLineEdit>
+#include <QMainWindow>
+#include <QPushButton>
+#include <QSettings>
 
 class MainWindow : public QMainWindow
 {

@@ -1,12 +1,13 @@
 #include "effectssidebar.h"
-#include <QVBoxLayout>
+#include <QGroupBox>
 #include <QHBoxLayout>
 #include <QPushButton>
-#include <QGroupBox>
 #include <QScrollArea>
+#include <QVBoxLayout>
 
 EffectsSidebar::EffectsSidebar(VideoEffects *effects, QWidget *parent)
-    : QWidget(parent), effects(effects)
+    : QWidget(parent)
+    , effects(effects)
 {
     setMaximumWidth(250);
     setMinimumWidth(200);
@@ -21,7 +22,7 @@ void EffectsSidebar::setupUI()
 {
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
     mainLayout->setContentsMargins(10, 10, 10, 10);
-    
+
     // Title
     QLabel *titleLabel = new QLabel("Video Effects", this);
     QFont titleFont = titleLabel->font();
@@ -29,7 +30,7 @@ void EffectsSidebar::setupUI()
     titleFont.setBold(true);
     titleLabel->setFont(titleFont);
     mainLayout->addWidget(titleLabel);
-    
+
     // Blur control
     QGroupBox *blurGroup = new QGroupBox("Blur", this);
     QVBoxLayout *blurLayout = new QVBoxLayout();
@@ -46,7 +47,7 @@ void EffectsSidebar::setupUI()
     blurGroup->setLayout(blurLayout);
     mainLayout->addWidget(blurGroup);
     connect(blurSlider, QOverload<int>::of(&QSlider::valueChanged), this, &EffectsSidebar::onBlurChanged);
-    
+
     // Grayscale control
     QGroupBox *grayscaleGroup = new QGroupBox("Color", this);
     QVBoxLayout *grayscaleLayout = new QVBoxLayout();
@@ -58,7 +59,7 @@ void EffectsSidebar::setupUI()
     mainLayout->addWidget(grayscaleGroup);
     connect(grayscaleCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onGrayscaleToggled);
     connect(sepiaCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onSepiaToggled);
-    
+
     // Brightness control
     QGroupBox *brightnessGroup = new QGroupBox("Brightness", this);
     QVBoxLayout *brightnessLayout = new QVBoxLayout();
@@ -75,7 +76,7 @@ void EffectsSidebar::setupUI()
     brightnessGroup->setLayout(brightnessLayout);
     mainLayout->addWidget(brightnessGroup);
     connect(brightnessSlider, QOverload<int>::of(&QSlider::valueChanged), this, &EffectsSidebar::onBrightnessChanged);
-    
+
     // Contrast control
     QGroupBox *contrastGroup = new QGroupBox("Contrast", this);
     QVBoxLayout *contrastLayout = new QVBoxLayout();
@@ -92,12 +93,12 @@ void EffectsSidebar::setupUI()
     contrastGroup->setLayout(contrastLayout);
     mainLayout->addWidget(contrastGroup);
     connect(contrastSlider, QOverload<int>::of(&QSlider::valueChanged), this, &EffectsSidebar::onContrastChanged);
-    
+
     // Reset button
     QPushButton *resetButton = new QPushButton("Reset All", this);
     mainLayout->addWidget(resetButton);
     connect(resetButton, &QPushButton::clicked, this, &EffectsSidebar::onResetEffects);
-    
+
     mainLayout->addStretch();
     setLayout(mainLayout);
 }

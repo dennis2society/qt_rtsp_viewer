@@ -1,20 +1,22 @@
 #include "mainwindow.h"
-#include <QVBoxLayout>
 #include <QHBoxLayout>
-#include <QWidget>
-#include <QMessageBox>
 #include <QLineEdit>
+#include <QMessageBox>
 #include <QTimer>
+#include <QVBoxLayout>
+#include <QWidget>
 
 MainWindow::MainWindow(QWidget *parent)
-    : QMainWindow(parent), videoPlayer(nullptr), settings(nullptr)
+    : QMainWindow(parent)
+    , videoPlayer(nullptr)
+    , settings(nullptr)
 {
     setWindowTitle("Qt RTSP Viewer");
     setGeometry(100, 100, 1000, 700);
-    
+
     // Initialize settings
     settings = new QSettings("QtRtspViewer", "QtRtspViewer", this);
-    
+
     setupUI();
     loadUrlHistory();
     loadSavedPassword();
@@ -31,10 +33,10 @@ void MainWindow::setupUI()
     // Create central widget
     QWidget *centralWidget = new QWidget(this);
     setCentralWidget(centralWidget);
-    
+
     // Create main layout
     QVBoxLayout *mainLayout = new QVBoxLayout(centralWidget);
-    
+
     // Title
     titleLabel = new QLabel("RTSP Stream Viewer", this);
     QFont titleFont = titleLabel->font();
@@ -42,7 +44,7 @@ void MainWindow::setupUI()
     titleFont.setBold(true);
     titleLabel->setFont(titleFont);
     mainLayout->addWidget(titleLabel);
-    
+
     // URL input layout
     QHBoxLayout *inputLayout = new QHBoxLayout();
     QLabel *urlLabel = new QLabel("RTSP URL:", this);
@@ -57,7 +59,7 @@ void MainWindow::setupUI()
     inputLayout->addWidget(urlLabel);
     inputLayout->addWidget(urlInput);
     inputLayout->addWidget(removeButton);
-    
+
     // Username layout
     QHBoxLayout *usernameLayout = new QHBoxLayout();
     usernameLayout->setContentsMargins(0, 0, 0, 0);
@@ -71,7 +73,7 @@ void MainWindow::setupUI()
     usernameLayout->addWidget(usernameLabel);
     usernameLayout->addWidget(usernameInput);
     inputLayout->addLayout(usernameLayout);
-    
+
     // Password layout
     QHBoxLayout *passwordLayout = new QHBoxLayout();
     passwordLayout->setContentsMargins(0, 0, 0, 0);
@@ -89,23 +91,23 @@ void MainWindow::setupUI()
     passwordLayout->addWidget(passwordInput);
     passwordLayout->addWidget(savePasswordCheckbox);
     inputLayout->addLayout(passwordLayout);
-    
+
     mainLayout->addLayout(inputLayout);
-    
+
     // Video display with sidebar
     QHBoxLayout *videoLayout = new QHBoxLayout();
-    
+
     // Video display area
     videoPlayer = new VideoPlayer(this);
     videoLayout->addWidget(videoPlayer, 1);
-    
+
     // Initialize video effects and effects sidebar
     videoEffects = new VideoEffects(this);
     effectsSidebar = new EffectsSidebar(videoEffects, this);
     videoLayout->addWidget(effectsSidebar);
-    
+
     mainLayout->addLayout(videoLayout, 1);
-    
+
     // Button layout
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     playButton = new QPushButton("Play", this);
@@ -115,7 +117,7 @@ void MainWindow::setupUI()
     buttonLayout->addWidget(stopButton);
     buttonLayout->addStretch();
     mainLayout->addLayout(buttonLayout);
-    
+
     centralWidget->setLayout(mainLayout);
     videoPlayer->setEffectsSidebar(effectsSidebar);
 }
@@ -137,25 +139,25 @@ void MainWindow::onPlayButtonClicked()
         QMessageBox::warning(this, "Warning", "Please enter an RTSP URL");
         return;
     }
-    
+
     // Inject credentials if provided
     QString username = usernameInput->text().trimmed();
     QString password = passwordInput->text().trimmed();
-    
+
     if (!username.isEmpty()) {
         // Parse URL to inject credentials
         if (url.startsWith("rtsp://")) {
-            QString baseUrl = url.mid(7);  // Remove "rtsp://"
+            QString baseUrl = url.mid(7); // Remove "rtsp://"
             url = QString("rtsp://%1:%2@%3").arg(username, password, baseUrl);
         }
     }
-    
+
     // Add URL to history
     addUrlToHistory(url);
-    
+
     // Save as last played URL
     settings->setValue("LastPlayedUrl", url);
-    
+
     // Save password if checkbox is checked
     if (savePasswordCheckbox->isChecked()) {
         settings->setValue("SavePassword", true);
@@ -164,10 +166,10 @@ void MainWindow::onPlayButtonClicked()
         settings->setValue("SavePassword", false);
         settings->remove("SavedPassword");
     }
-    
+
     // Start streaming
     videoPlayer->playStream(url);
-    
+
     playButton->setEnabled(false);
     stopButton->setEnabled(true);
     urlInput->setEnabled(false);
@@ -177,7 +179,7 @@ void MainWindow::onStopButtonClicked()
 {
     // Stop the media player
     videoPlayer->stopStream();
-    
+
     playButton->setEnabled(true);
     stopButton->setEnabled(false);
     urlInput->setEnabled(true);
@@ -194,7 +196,7 @@ void MainWindow::onPlayerError(const QString &errorMessage)
 void MainWindow::onPlayerStatusChanged(const QString &status)
 {
     titleLabel->setText(status);
-    
+
     if (status.contains("ended")) {
         playButton->setEnabled(true);
         stopButton->setEnabled(false);
@@ -244,16 +246,16 @@ void MainWindow::addUrlToHistory(const QString &url)
         // Move existing URL to top
         urlInput->removeItem(index);
     }
-    
+
     // Add URL at the beginning
     urlInput->insertItem(0, url);
     urlInput->setCurrentIndex(0);
-    
+
     // Keep only the last 20 URLs
     while (urlInput->count() > 20) {
         urlInput->removeItem(urlInput->count() - 1);
     }
-    
+
     // Save to persistent storage
     saveUrlHistory();
 }
@@ -271,7 +273,7 @@ void MainWindow::loadSavedPassword()
 {
     bool savePassword = settings->value("SavePassword", false).toBool();
     savePasswordCheckbox->setChecked(savePassword);
-    
+
     if (savePassword) {
         QString savedPassword = settings->value("SavedPassword", "").toString();
         passwordInput->setText(savedPassword);
@@ -285,23 +287,22 @@ void MainWindow::onRemoveUrlClicked()
         QMessageBox::warning(this, "Warning", "No URL selected to remove.");
         return;
     }
-    
+
     QString urlToRemove = urlInput->itemText(currentIndex);
-    
+
     // Show confirmation dialog
-    QMessageBox::StandardButton reply = QMessageBox::warning(this, "Remove URL", 
-        "Are you sure you want to remove this URL?\n" + urlToRemove, 
-        QMessageBox::Yes | QMessageBox::No);
-    
+    QMessageBox::StandardButton reply =
+        QMessageBox::warning(this, "Remove URL", "Are you sure you want to remove this URL?\n" + urlToRemove, QMessageBox::Yes | QMessageBox::No);
+
     if (reply == QMessageBox::No) {
         return;
     }
-    
+
     urlInput->removeItem(currentIndex);
-    
+
     // Save updated history
     saveUrlHistory();
-    
+
     QMessageBox::information(this, "Removed", "URL removed from history.");
 }
 
@@ -333,7 +334,7 @@ void MainWindow::loadCredentialsForUrl(const QString &url)
     QString password = settings->value("password", "").toString();
     settings->endGroup();
     settings->endGroup();
-    
+
     usernameInput->setText(username);
     passwordInput->setText(password);
 }
