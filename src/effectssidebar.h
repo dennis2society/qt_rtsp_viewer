@@ -1,11 +1,11 @@
 #ifndef EFFECTSSIDEBAR_H
 #define EFFECTSSIDEBAR_H
 
-#include <QWidget>
-#include <QSlider>
+#include "videoeffects.h"
 #include <QCheckBox>
 #include <QLabel>
-#include "videoeffects.h"
+#include <QSlider>
+#include <QWidget>
 
 class EffectsSidebar : public QWidget
 {
@@ -15,7 +15,11 @@ public:
     EffectsSidebar(VideoEffects *effects, QWidget *parent = nullptr);
     ~EffectsSidebar();
 
-    VideoEffects *getEffects() const { return effects; }
+    VideoEffects *getEffects() const
+    {
+        return effects;
+    }
+    const int getBlurValue();
 
 signals:
     void effectsChanged();
@@ -23,7 +27,6 @@ signals:
 private slots:
     void onBlurChanged(int value);
     void onGrayscaleToggled(bool checked);
-    void onSepiaToggled(bool checked);
     void onBrightnessChanged(int value);
     void onContrastChanged(int value);
     void onResetEffects();
@@ -32,11 +35,10 @@ private:
     void setupUI();
 
     VideoEffects *effects;
-    
+
     QSlider *blurSlider;
     QLabel *blurValueLabel;
     QCheckBox *grayscaleCheckBox;
-    QCheckBox *sepiaCheckBox;
     QSlider *brightnessSlider;
     QLabel *brightnessValueLabel;
     QSlider *contrastSlider;

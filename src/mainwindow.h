@@ -24,7 +24,7 @@ private slots:
     void onPlayButtonClicked();
     void onStopButtonClicked();
     void onUrlChanged(const QString &url);
-    void onUrlSelected();
+    // void onUrlSelected(); // removed, not implemented
     void onPlayerError(const QString &errorMessage);
     void onPlayerStatusChanged(const QString &status);
     void onRemoveUrlClicked();
@@ -36,16 +36,9 @@ private:
     void saveUrlHistory();
     void addUrlToHistory(const QString &url);
     void autoplayLastStream();
-    void loadSavedPassword();
-    void saveCredentialsForUrl(const QString &url, const QString &username, const QString &password);
-    void loadCredentialsForUrl(const QString &url);
-    void removeCredentialsForUrl(const QString &url);
 
     QLabel *titleLabel;
     QComboBox *urlInput;
-    QLineEdit *usernameInput;
-    QLineEdit *passwordInput;
-    QCheckBox *savePasswordCheckbox;
     QPushButton *playButton;
     QPushButton *stopButton;
     QPushButton *removeButton;

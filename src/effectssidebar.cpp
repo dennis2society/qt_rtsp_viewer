@@ -36,7 +36,7 @@ void EffectsSidebar::setupUI()
     QVBoxLayout *blurLayout = new QVBoxLayout();
     blurSlider = new QSlider(Qt::Horizontal, this);
     blurSlider->setMinimum(0);
-    blurSlider->setMaximum(20);
+    blurSlider->setMaximum(VideoEffects::MAX_BLUR_AMOUNT);
     blurSlider->setValue(0);
     blurValueLabel = new QLabel("0", this);
     blurValueLabel->setMaximumWidth(30);
@@ -53,12 +53,9 @@ void EffectsSidebar::setupUI()
     QVBoxLayout *grayscaleLayout = new QVBoxLayout();
     grayscaleCheckBox = new QCheckBox("Grayscale", this);
     grayscaleLayout->addWidget(grayscaleCheckBox);
-    sepiaCheckBox = new QCheckBox("Sepia", this);
-    grayscaleLayout->addWidget(sepiaCheckBox);
     grayscaleGroup->setLayout(grayscaleLayout);
     mainLayout->addWidget(grayscaleGroup);
     connect(grayscaleCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onGrayscaleToggled);
-    connect(sepiaCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onSepiaToggled);
 
     // Brightness control
     QGroupBox *brightnessGroup = new QGroupBox("Brightness", this);
@@ -113,14 +110,6 @@ void EffectsSidebar::onBlurChanged(int value)
 void EffectsSidebar::onGrayscaleToggled(bool checked)
 {
     effects->setGrayscaleEnabled(checked);
-    sepiaCheckBox->setEnabled(!checked);
-    emit effectsChanged();
-}
-
-void EffectsSidebar::onSepiaToggled(bool checked)
-{
-    effects->setSepiaEnabled(checked);
-    grayscaleCheckBox->setEnabled(!checked);
     emit effectsChanged();
 }
 
@@ -142,7 +131,11 @@ void EffectsSidebar::onResetEffects()
 {
     blurSlider->setValue(0);
     grayscaleCheckBox->setChecked(false);
-    sepiaCheckBox->setChecked(false);
     brightnessSlider->setValue(0);
     contrastSlider->setValue(0);
+}
+
+const int EffectsSidebar::getBlurValue()
+{
+    return blurSlider->value();
 }

@@ -6,6 +6,8 @@ project(QtRtspViewer
     DESCRIPTION "Qt6 RTSP Viewer Application"
 )
 
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -26,6 +28,8 @@ find_package(Qt6 REQUIRED COMPONENTS
     OpenGLWidgets
 )
 
+find_package(OpenCV REQUIRED)
+
 # Source files
 set(SOURCES
     src/main.cpp
@@ -37,6 +41,8 @@ set(SOURCES
     src/videoeffects.h
     src/effectssidebar.cpp
     src/effectssidebar.h
+    src/opencv_qt_conversion.hpp
+    src/opencv_qt_conversion.cpp
 )
 
 # UI files (if you have them)
@@ -54,6 +60,7 @@ add_executable(${PROJECT_NAME}
     ${SOURCES}
     ${UI_FILES}
     ${RESOURCE_FILES}
+    src/opencv_qt_conversion.hpp src/opencv_qt_conversion.cpp
 )
 
 # Link Qt6 libraries
@@ -65,6 +72,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::Multimedia
     Qt6::MultimediaWidgets
     Qt6::OpenGLWidgets
+    ${OpenCV_LIBS}
 )
 
 # Set output directory

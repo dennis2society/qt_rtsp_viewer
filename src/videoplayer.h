@@ -12,7 +12,7 @@
 #include <QTimer>
 #include <QElapsedTimer>
 
-#include "effectssidebar.h"
+#include "videoeffects.h"
 
 
 class VideoPlayer : public QWidget
@@ -26,7 +26,7 @@ public:
     void playStream(const QString &url);
     void stopStream();
     QMediaPlayer *getMediaPlayer() const { return mediaPlayer; }
-    void setEffectsSidebar(EffectsSidebar *sidebar) { effectsSidebar = sidebar; }
+    void setVideoEffects(VideoEffects *effects) { videoEffects = effects; }
 
 signals:
     void errorOccurred(const QString &errorMessage);
@@ -52,7 +52,7 @@ private:
     QElapsedTimer fpsTimer;
     int frameCount;
     double currentFps;
-    EffectsSidebar *effectsSidebar;
+    VideoEffects *videoEffects;
 };
 
 #endif // VIDEOPLAYER_H

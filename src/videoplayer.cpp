@@ -1,8 +1,10 @@
 #include "videoplayer.h"
+#include "opencv_qt_conversion.hpp"
 #include <QAudioOutput>
 #include <QFontMetrics>
 #include <QLabel>
 #include <QPainter>
+#include <QDateTime>
 #include <QUrl>
 #include <QVBoxLayout>
 #include <QVideoFrame>
@@ -124,8 +126,11 @@ void VideoPlayer::updateFrame(const QVideoFrame &frame)
     }
 
     QImage image = frame.toImage();
-    if (effectsSidebar->getEffects()->isGrayscaleEnabled()) {
+    if (videoEffects->isGrayscaleEnabled()) {
         image = image.convertToFormat(QImage::Format_Grayscale8);
+    }
+    if (videoEffects->getBlurAmount() > 0) {
+        image = OpenCVQtConversion::applyGaussBlur(image, videoEffects->getBlurAmount() * 2 + 1, videoEffects->getBlurAmount() * 0.5);
     }
     paintFPSOverlay(image, QString("FPS: %1").arg(currentFps, 0, 'f', 1));
     videoWidget->videoSink()->setVideoFrame(QVideoFrame(image));
@@ -150,25 +155,30 @@ void VideoPlayer::paintFPSOverlay(QImage &image, const QString &fpsText)
 
     QFontMetrics fm(font);
 
-    // 🔹 Build overlay text (FPS + resolution)
+
+    // Overlay current date and time at top left
+    QString dateTimeText = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    QRect dateTimeRect = fm.boundingRect(dateTimeText);
+    const int dtPaddingX = 20;
+    const int dtPaddingY = 12;
+    dateTimeRect.adjust(-dtPaddingX, -dtPaddingY, dtPaddingX, dtPaddingY);
+    const int dtMargin = 20;
+    dateTimeRect.moveTopLeft(QPoint(dtMargin, dtMargin));
+    painter.fillRect(dateTimeRect, QColor(0, 0, 0, 180));
+    painter.setPen(Qt::green);
+    painter.drawText(dateTimeRect, Qt::AlignLeft | Qt::AlignVCenter, dateTimeText);
+
+    // FPS + resolution overlay (keep at top right)
     QString resolutionText = QString("%1x%2").arg(image.width()).arg(image.height());
-
     QString overlayText = QString("%1 | %2").arg(fpsText).arg(resolutionText);
-
-    // Measure text
     QRect textRect = fm.boundingRect(overlayText);
-
     const int paddingX = 20;
     const int paddingY = 12;
-
     textRect.adjust(-paddingX, -paddingY, paddingX, paddingY);
-
     const int margin = 20;
-    textRect.moveTopRight(QPoint(image.width() - margin, textRect.height()));
-
+    textRect.moveTopRight(QPoint(image.width() - margin, dtMargin));
     painter.fillRect(textRect, QColor(0, 0, 0, 180));
     painter.setPen(Qt::green);
-
     painter.drawText(textRect, Qt::AlignCenter, overlayText);
 
     painter.end();
