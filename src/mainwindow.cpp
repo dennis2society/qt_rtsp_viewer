@@ -84,8 +84,12 @@ void MainWindow::setupUI()
     QHBoxLayout *buttonLayout = new QHBoxLayout();
     playButton = new QPushButton("Play", this);
     stopButton = new QPushButton("Stop", this);
+    pauseButton = new QPushButton("Pause", this);
+    pauseButton->setCheckable(true);
     stopButton->setEnabled(false);
+    pauseButton->setEnabled(false);
     buttonLayout->addWidget(playButton);
+    buttonLayout->addWidget(pauseButton);
     buttonLayout->addWidget(stopButton);
     buttonLayout->addStretch();
     mainLayout->addLayout(buttonLayout);
@@ -98,6 +102,7 @@ void MainWindow::connectSignals()
 {
     connect(playButton, &QPushButton::clicked, this, &MainWindow::onPlayButtonClicked);
     connect(stopButton, &QPushButton::clicked, this, &MainWindow::onStopButtonClicked);
+    connect(pauseButton, &QPushButton::toggled, this, &MainWindow::onPauseButtonToggled);
     connect(removeButton, &QPushButton::clicked, this, &MainWindow::onRemoveUrlClicked);
     connect(videoPlayer, &VideoPlayer::errorOccurred, this, &MainWindow::onPlayerError);
     connect(videoPlayer, &VideoPlayer::statusChanged, this, &MainWindow::onPlayerStatusChanged);
@@ -123,6 +128,8 @@ void MainWindow::onPlayButtonClicked()
 
     playButton->setEnabled(false);
     stopButton->setEnabled(true);
+    pauseButton->setEnabled(true);
+    pauseButton->setChecked(false);
     urlInput->setEnabled(false);
 }
 
@@ -133,7 +140,18 @@ void MainWindow::onStopButtonClicked()
 
     playButton->setEnabled(true);
     stopButton->setEnabled(false);
+    pauseButton->setEnabled(false);
+    pauseButton->setChecked(false);
     urlInput->setEnabled(true);
+}
+
+void MainWindow::onPauseButtonToggled(bool checked)
+{
+    if (checked) {
+        videoPlayer->pauseVideo();
+    } else {
+        videoPlayer->resumeVideo();
+    }
 }
 
 void MainWindow::onPlayerError(const QString &errorMessage)
@@ -141,6 +159,8 @@ void MainWindow::onPlayerError(const QString &errorMessage)
     QMessageBox::critical(this, "Playback Error", errorMessage);
     playButton->setEnabled(true);
     stopButton->setEnabled(false);
+    pauseButton->setEnabled(false);
+    pauseButton->setChecked(false);
     urlInput->setEnabled(true);
 }
 
@@ -151,6 +171,8 @@ void MainWindow::onPlayerStatusChanged(const QString &status)
     if (status.contains("ended")) {
         playButton->setEnabled(true);
         stopButton->setEnabled(false);
+        pauseButton->setEnabled(false);
+        pauseButton->setChecked(false);
         urlInput->setEnabled(true);
     }
 }

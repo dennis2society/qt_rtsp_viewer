@@ -115,37 +115,48 @@ void VideoPlayer::onMediaStatusChanged(QMediaPlayer::MediaStatus status)
 
 void VideoPlayer::updateFrame(const QVideoFrame &frame)
 {
-    // Calculate FPS
-    frameCount++;
-    qint64 elapsed = fpsTimer.elapsed();
+    if (!paused) {
+        // Only update frame and FPS when not paused
+        frameCount++;
+        qint64 elapsed = fpsTimer.elapsed();
 
-    if (elapsed >= 1000) { // Update FPS every second
-        currentFps = (frameCount * 1000.0) / elapsed;
-        frameCount = 0;
-        fpsTimer.restart();
-    }
+        if (elapsed >= 1000) { // Update FPS every second
+            currentFps = (frameCount * 1000.0) / elapsed;
+            frameCount = 0;
+            fpsTimer.restart();
+        }
 
-    QImage image = frame.toImage();
-    
-    // Apply brightness and contrast effects
-    int brightness = videoEffects->getBrightnessAmount();
-    int contrast = videoEffects->getContrastAmount();
-    if (brightness != 0 || contrast != 0) {
-        image = videoEffects->applyBrightnessContrastToImage(image);
+        lastFrame = frame;
+        QImage image = frame.toImage();
+
+        // Apply brightness and contrast effects
+        int brightness = videoEffects->getBrightnessAmount();
+        int contrast = videoEffects->getContrastAmount();
+        if (brightness != 0 || contrast != 0) {
+            image = videoEffects->applyBrightnessContrastToImage(image);
+        }
+
+        // Apply grayscale effect
+        if (videoEffects->isGrayscaleEnabled()) {
+            image = image.convertToFormat(QImage::Format_Grayscale8);
+        }
+
+        // Apply blur effect
+        if (videoEffects->getBlurAmount() > 0) {
+            image = OpenCVQtProcessor::applyGaussBlur(image, videoEffects->getBlurAmount() * 2 + 1, videoEffects->getBlurAmount() * 0.5);
+        }
+
+        frozenFrame = image;
+        paintFPSOverlay(image, QString("FPS: %1").arg(currentFps, 0, 'f', 1));
+        videoWidget->videoSink()->setVideoFrame(QVideoFrame(image));
+    } else {
+        // When paused, still paint overlay on frozen frame
+        if (!frozenFrame.isNull()) {
+            QImage displayImage = frozenFrame.copy();
+            paintFPSOverlay(displayImage, QString("FPS: %1").arg(currentFps, 0, 'f', 1));
+            videoWidget->videoSink()->setVideoFrame(QVideoFrame(displayImage));
+        }
     }
-    
-    // Apply grayscale effect
-    if (videoEffects->isGrayscaleEnabled()) {
-        image = image.convertToFormat(QImage::Format_Grayscale8);
-    }
-    
-    // Apply blur effect
-    if (videoEffects->getBlurAmount() > 0) {
-        image = OpenCVQtProcessor::applyGaussBlur(image, videoEffects->getBlurAmount() * 2 + 1, videoEffects->getBlurAmount() * 0.5);
-    }
-    
-    paintFPSOverlay(image, QString("FPS: %1").arg(currentFps, 0, 'f', 1));
-    videoWidget->videoSink()->setVideoFrame(QVideoFrame(image));
 }
 
 void VideoPlayer::paintFPSOverlay(QImage &image, const QString &fpsText)
@@ -194,4 +205,23 @@ void VideoPlayer::paintFPSOverlay(QImage &image, const QString &fpsText)
     painter.drawText(textRect, Qt::AlignCenter, overlayText);
 
     painter.end();
+}
+
+void VideoPlayer::pauseVideo()
+{
+    if (!paused) {
+        paused = true;
+        // Freeze the last frame
+        if (lastFrame.isValid()) {
+            frozenFrame = lastFrame.toImage();
+            if (!frozenFrame.isNull()) {
+                videoWidget->videoSink()->setVideoFrame(QVideoFrame(frozenFrame));
+            }
+        }
+    }
+}
+
+void VideoPlayer::resumeVideo()
+{
+    paused = false;
 }

@@ -11,8 +11,11 @@
 #include <QPixmap>
 #include <QTimer>
 #include <QElapsedTimer>
+#include <QThread>
 
 #include "videoeffects.h"
+
+class VideoWorker;
 
 
 class VideoPlayer : public QWidget
@@ -25,6 +28,8 @@ public:
 
     void playStream(const QString &url);
     void stopStream();
+    void pauseVideo();
+    void resumeVideo();
     QMediaPlayer *getMediaPlayer() const { return mediaPlayer; }
     void setVideoEffects(VideoEffects *effects) { videoEffects = effects; }
 
@@ -33,6 +38,8 @@ signals:
     void statusChanged(const QString &status);
     void streamStarted();
     void streamStopped();
+    void startPlayback(const QString &url);
+    void stopPlayback();
 
 private slots:
     void onMediaError(QMediaPlayer::Error error, const QString &errorString);
@@ -53,6 +60,10 @@ private:
     int frameCount;
     double currentFps;
     VideoEffects *videoEffects;
+    QThread *workerThread;
+    VideoWorker *worker;
+    bool paused = false;
+    QImage frozenFrame;
 };
 
 #endif // VIDEOPLAYER_H

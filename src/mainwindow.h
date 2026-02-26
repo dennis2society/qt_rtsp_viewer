@@ -23,6 +23,7 @@ public:
 private slots:
     void onPlayButtonClicked();
     void onStopButtonClicked();
+    void onPauseButtonToggled(bool checked);
     void onUrlChanged(const QString &url);
     // void onUrlSelected(); // removed, not implemented
     void onPlayerError(const QString &errorMessage);
@@ -41,6 +42,7 @@ private:
     QComboBox *urlInput;
     QPushButton *playButton;
     QPushButton *stopButton;
+    QPushButton *pauseButton;
     QPushButton *removeButton;
     VideoPlayer *videoPlayer;
     VideoEffects *videoEffects;
