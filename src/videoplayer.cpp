@@ -173,7 +173,7 @@ void VideoPlayer::updateFrame(const QVideoFrame &frame)
 
 void VideoPlayer::paintFPSOverlay(QImage &image, const QString &fpsText)
 {
-    if (image.isNull())
+    if (image.isNull() || !overlayEnabled)
         return;
 
     if (image.format() != QImage::Format_ARGB32 && image.format() != QImage::Format_ARGB32_Premultiplied) {

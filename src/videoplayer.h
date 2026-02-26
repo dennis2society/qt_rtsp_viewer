@@ -32,6 +32,8 @@ public:
     void resumeVideo();
     QMediaPlayer *getMediaPlayer() const { return mediaPlayer; }
     void setVideoEffects(VideoEffects *effects) { videoEffects = effects; }
+    void setOverlayEnabled(bool enabled) { overlayEnabled = enabled; }
+    bool isOverlayEnabled() const { return overlayEnabled; }
 
 signals:
     void errorOccurred(const QString &errorMessage);
@@ -65,6 +67,7 @@ private:
     bool paused = false;
     QImage frozenFrame;
     QImage previousFrame;
+    bool overlayEnabled = true;
 
 };
 

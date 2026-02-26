@@ -20,9 +20,13 @@ public:
         return effects;
     }
     const int getBlurValue();
+    
+    void setOverlayEnabled(bool enabled);
+    bool isOverlayEnabled() const;
 
 signals:
     void effectsChanged();
+    void overlayToggled(bool enabled);
 
 private slots:
     void onBlurChanged(int value);
@@ -32,6 +36,7 @@ private slots:
     void onResetEffects();
     void onMotionDetectionChanged();
     void onMotionVectorsChanged();
+    void onOverlayToggled(bool checked);
 
 private:
     void setupUI();
@@ -53,6 +58,9 @@ private:
 
     // Motion vectors UI control
     QCheckBox *motionVectorsCheckBox;
+
+    // Overlay UI control
+    QCheckBox *overlayCheckBox;
 };
 
 #endif // EFFECTSSIDEBAR_H

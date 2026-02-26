@@ -6,3 +6,4 @@ with basic effects processing.
 ![Screenshot](qt_rtsp_viewer_screenshot.jpg)
 
 
+Transparency note: This application was developed with AI assistance (Claude Haiku/Sonnet 4.5, ChatGPT 4.1)

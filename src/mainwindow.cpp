@@ -20,6 +20,12 @@ MainWindow::MainWindow(QWidget *parent)
     setupUI();
     loadUrlHistory();
     // loadSavedPassword() removed
+    
+    // Load overlay setting
+    bool overlayEnabled = settings->value("OverlayEnabled", true).toBool();
+    videoPlayer->setOverlayEnabled(overlayEnabled);
+    effectsSidebar->setOverlayEnabled(overlayEnabled);
+    
     connectSignals();
     autoplayLastStream();
 }
@@ -107,6 +113,11 @@ void MainWindow::connectSignals()
     connect(videoPlayer, &VideoPlayer::errorOccurred, this, &MainWindow::onPlayerError);
     connect(videoPlayer, &VideoPlayer::statusChanged, this, &MainWindow::onPlayerStatusChanged);
     connect(urlInput->lineEdit(), &QLineEdit::textChanged, this, &MainWindow::onUrlChanged);
+    connect(effectsSidebar, &EffectsSidebar::overlayToggled, videoPlayer, &VideoPlayer::setOverlayEnabled);
+    connect(effectsSidebar, &EffectsSidebar::overlayToggled, this, [this](bool enabled) {
+        settings->setValue("OverlayEnabled", enabled);
+        settings->sync();
+    });
 }
 
 void MainWindow::onPlayButtonClicked()

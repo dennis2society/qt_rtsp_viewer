@@ -118,6 +118,16 @@ void EffectsSidebar::setupUI()
     connect(motionSensitivitySlider, QOverload<int>::of(&QSlider::valueChanged), this, &EffectsSidebar::onMotionDetectionChanged);
     connect(motionVectorsCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onMotionVectorsChanged);
 
+    // Overlay control
+    QGroupBox *overlayGroup = new QGroupBox("Display", this);
+    QVBoxLayout *overlayLayout = new QVBoxLayout();
+    overlayCheckBox = new QCheckBox("Show FPS && Time Overlay", this);
+    overlayCheckBox->setChecked(true); // Enabled by default
+    overlayLayout->addWidget(overlayCheckBox);
+    overlayGroup->setLayout(overlayLayout);
+    mainLayout->addWidget(overlayGroup);
+    connect(overlayCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onOverlayToggled);
+
     // Reset button
     QPushButton *resetButton = new QPushButton("Reset All", this);
     mainLayout->addWidget(resetButton);
@@ -160,6 +170,7 @@ void EffectsSidebar::onResetEffects()
     motionSensitivitySlider->setValue(50);
     motionSensitivityLabel->setText("50");
     motionVectorsCheckBox->setChecked(false);
+    overlayCheckBox->setChecked(true); // Reset to default (enabled)
 }
 
 const int EffectsSidebar::getBlurValue()
@@ -179,4 +190,19 @@ void EffectsSidebar::onMotionVectorsChanged()
 {
     effects->setMotionVectorsEnabled(motionVectorsCheckBox->isChecked());
     emit effectsChanged();
+}
+
+void EffectsSidebar::onOverlayToggled(bool checked)
+{
+    emit overlayToggled(checked);
+}
+
+void EffectsSidebar::setOverlayEnabled(bool enabled)
+{
+    overlayCheckBox->setChecked(enabled);
+}
+
+bool EffectsSidebar::isOverlayEnabled() const
+{
+    return overlayCheckBox->isChecked();
 }
