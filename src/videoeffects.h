@@ -38,6 +38,10 @@ public:
     bool isMotionDetectionEnabled() const { return motionDetectionEnabled; }
     int getMotionSensitivity() const { return motionSensitivity; }
 
+    // Motion vectors
+    void setMotionVectorsEnabled(bool enabled) { motionVectorsEnabled = enabled; }
+    bool isMotionVectorsEnabled() const { return motionVectorsEnabled; }
+
 private:
     int blurAmount;
     bool grayscaleEnabled;
@@ -45,6 +49,7 @@ private:
     int contrastAmount;
     bool motionDetectionEnabled = false;
     int motionSensitivity = 50;
+    bool motionVectorsEnabled = false;
     
     QImage applyBrightnessContrast(const QImage &image, int brightness, int contrast);
 };

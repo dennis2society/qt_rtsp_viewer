@@ -150,6 +150,12 @@ void VideoPlayer::updateFrame(const QVideoFrame &frame)
         if (videoEffects->isMotionDetectionEnabled() && !previousFrame.isNull()) {
             image = OpenCVQtProcessor::applyMotionDetectionOverlay(image, previousFrame, videoEffects->getMotionSensitivity());
         }
+
+        // Apply motion vectors overlay if enabled
+        if (videoEffects->isMotionVectorsEnabled() && !previousFrame.isNull()) {
+            image = OpenCVQtProcessor::applyMotionVectorsOverlay(image, previousFrame);
+        }
+
         previousFrame = image.copy();
 
         frozenFrame = image;

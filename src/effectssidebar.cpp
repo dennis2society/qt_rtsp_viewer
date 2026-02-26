@@ -107,10 +107,16 @@ void EffectsSidebar::setupUI()
     motionHLayout->addWidget(motionSensitivitySlider);
     motionHLayout->addWidget(motionSensitivityLabel);
     motionLayout->addLayout(motionHLayout);
+    
+    // Motion vectors control
+    motionVectorsCheckBox = new QCheckBox("Motion Vectors", this);
+    motionLayout->addWidget(motionVectorsCheckBox);
+    
     motionGroup->setLayout(motionLayout);
     mainLayout->addWidget(motionGroup);
     connect(motionDetectionCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onMotionDetectionChanged);
     connect(motionSensitivitySlider, QOverload<int>::of(&QSlider::valueChanged), this, &EffectsSidebar::onMotionDetectionChanged);
+    connect(motionVectorsCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onMotionVectorsChanged);
 
     // Reset button
     QPushButton *resetButton = new QPushButton("Reset All", this);
@@ -153,6 +159,7 @@ void EffectsSidebar::onResetEffects()
     motionDetectionCheckBox->setChecked(false);
     motionSensitivitySlider->setValue(50);
     motionSensitivityLabel->setText("50");
+    motionVectorsCheckBox->setChecked(false);
 }
 
 const int EffectsSidebar::getBlurValue()
@@ -165,5 +172,11 @@ void EffectsSidebar::onMotionDetectionChanged()
     effects->setMotionDetectionEnabled(motionDetectionCheckBox->isChecked());
     effects->setMotionSensitivity(motionSensitivitySlider->value());
     motionSensitivityLabel->setText(QString::number(motionSensitivitySlider->value()));
+    emit effectsChanged();
+}
+
+void EffectsSidebar::onMotionVectorsChanged()
+{
+    effects->setMotionVectorsEnabled(motionVectorsCheckBox->isChecked());
     emit effectsChanged();
 }

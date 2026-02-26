@@ -31,6 +31,7 @@ private slots:
     void onContrastChanged(int value);
     void onResetEffects();
     void onMotionDetectionChanged();
+    void onMotionVectorsChanged();
 
 private:
     void setupUI();
@@ -49,6 +50,9 @@ private:
     QCheckBox *motionDetectionCheckBox;
     QSlider *motionSensitivitySlider;
     QLabel *motionSensitivityLabel;
+
+    // Motion vectors UI control
+    QCheckBox *motionVectorsCheckBox;
 };
 
 #endif // EFFECTSSIDEBAR_H
