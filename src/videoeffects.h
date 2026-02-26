@@ -19,6 +19,10 @@ public:
     void setBrightnessAmount(int amount);
     void setContrastAmount(int amount);
 
+    // Motion detection parameters
+    void setMotionDetectionEnabled(bool enabled);
+    void setMotionSensitivity(int sensitivity);
+
     // Apply effects to an image
     QImage applyEffects(const QImage &sourceImage);
     QImage applyBlur(const QImage &image, int kernelSize = 10, double sigma = 1.5);
@@ -30,11 +34,17 @@ public:
     int getBrightnessAmount() const { return brightnessAmount; }
     int getContrastAmount() const { return contrastAmount; }
 
+    // Motion detection getters
+    bool isMotionDetectionEnabled() const { return motionDetectionEnabled; }
+    int getMotionSensitivity() const { return motionSensitivity; }
+
 private:
     int blurAmount;
     bool grayscaleEnabled;
     int brightnessAmount;
     int contrastAmount;
+    bool motionDetectionEnabled = false;
+    int motionSensitivity = 50;
     
     QImage applyBrightnessContrast(const QImage &image, int brightness, int contrast);
 };

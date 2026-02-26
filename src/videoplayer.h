@@ -64,6 +64,8 @@ private:
     VideoWorker *worker;
     bool paused = false;
     QImage frozenFrame;
+    QImage previousFrame;
+
 };
 
 #endif // VIDEOPLAYER_H

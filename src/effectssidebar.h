@@ -30,6 +30,7 @@ private slots:
     void onBrightnessChanged(int value);
     void onContrastChanged(int value);
     void onResetEffects();
+    void onMotionDetectionChanged();
 
 private:
     void setupUI();
@@ -43,6 +44,11 @@ private:
     QLabel *brightnessValueLabel;
     QSlider *contrastSlider;
     QLabel *contrastValueLabel;
+
+    // Motion detection UI controls
+    QCheckBox *motionDetectionCheckBox;
+    QSlider *motionSensitivitySlider;
+    QLabel *motionSensitivityLabel;
 };
 
 #endif // EFFECTSSIDEBAR_H

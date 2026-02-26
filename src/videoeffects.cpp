@@ -37,6 +37,16 @@ void VideoEffects::setContrastAmount(int amount)
     contrastAmount = qBound(-100, amount, 100);
 }
 
+void VideoEffects::setMotionDetectionEnabled(bool enabled)
+{
+    motionDetectionEnabled = enabled;
+}
+
+void VideoEffects::setMotionSensitivity(int sensitivity)
+{
+    motionSensitivity = qBound(1, sensitivity, 100);
+}
+
 QImage VideoEffects::applyEffects(const QImage &sourceImage)
 {
     QImage result = sourceImage;

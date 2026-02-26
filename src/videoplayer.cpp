@@ -146,6 +146,12 @@ void VideoPlayer::updateFrame(const QVideoFrame &frame)
             image = OpenCVQtProcessor::applyGaussBlur(image, videoEffects->getBlurAmount() * 2 + 1, videoEffects->getBlurAmount() * 0.5);
         }
 
+        // Detect and paint motion overlay if enabled
+        if (videoEffects->isMotionDetectionEnabled() && !previousFrame.isNull()) {
+            image = OpenCVQtProcessor::applyMotionDetectionOverlay(image, previousFrame, videoEffects->getMotionSensitivity());
+        }
+        previousFrame = image.copy();
+
         frozenFrame = image;
         paintFPSOverlay(image, QString("FPS: %1").arg(currentFps, 0, 'f', 1));
         videoWidget->videoSink()->setVideoFrame(QVideoFrame(image));

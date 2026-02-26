@@ -91,6 +91,27 @@ void EffectsSidebar::setupUI()
     mainLayout->addWidget(contrastGroup);
     connect(contrastSlider, QOverload<int>::of(&QSlider::valueChanged), this, &EffectsSidebar::onContrastChanged);
 
+    // Motion detection control
+    QGroupBox *motionGroup = new QGroupBox("Motion Detection", this);
+    QVBoxLayout *motionLayout = new QVBoxLayout();
+    motionDetectionCheckBox = new QCheckBox("Enable", this);
+    motionLayout->addWidget(motionDetectionCheckBox);
+    motionSensitivitySlider = new QSlider(Qt::Horizontal, this);
+    motionSensitivitySlider->setMinimum(1);
+    motionSensitivitySlider->setMaximum(100);
+    motionSensitivitySlider->setValue(50);
+    motionSensitivityLabel = new QLabel("50", this);
+    motionSensitivityLabel->setMaximumWidth(40);
+    QHBoxLayout *motionHLayout = new QHBoxLayout();
+    motionHLayout->addWidget(new QLabel("Sensitivity", this));
+    motionHLayout->addWidget(motionSensitivitySlider);
+    motionHLayout->addWidget(motionSensitivityLabel);
+    motionLayout->addLayout(motionHLayout);
+    motionGroup->setLayout(motionLayout);
+    mainLayout->addWidget(motionGroup);
+    connect(motionDetectionCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onMotionDetectionChanged);
+    connect(motionSensitivitySlider, QOverload<int>::of(&QSlider::valueChanged), this, &EffectsSidebar::onMotionDetectionChanged);
+
     // Reset button
     QPushButton *resetButton = new QPushButton("Reset All", this);
     mainLayout->addWidget(resetButton);
@@ -129,9 +150,20 @@ void EffectsSidebar::onResetEffects()
     grayscaleCheckBox->setChecked(false);
     brightnessSlider->setValue(0);
     contrastSlider->setValue(0);
+    motionDetectionCheckBox->setChecked(false);
+    motionSensitivitySlider->setValue(50);
+    motionSensitivityLabel->setText("50");
 }
 
 const int EffectsSidebar::getBlurValue()
 {
     return blurSlider->value();
+}
+
+void EffectsSidebar::onMotionDetectionChanged()
+{
+    effects->setMotionDetectionEnabled(motionDetectionCheckBox->isChecked());
+    effects->setMotionSensitivity(motionSensitivitySlider->value());
+    motionSensitivityLabel->setText(QString::number(motionSensitivitySlider->value()));
+    emit effectsChanged();
 }
