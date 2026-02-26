@@ -15,6 +15,10 @@ Inside the cloned repo run:
 ```
 cmake -B build -D CMAKE_BUILD_TYPE=Release
 ```
+and then
+```
+cmake --build build
+```
 This should create the executable in ```./build/bin/```
 
 ## Transparency note
