@@ -41,8 +41,8 @@ set(SOURCES
     src/videoeffects.h
     src/effectssidebar.cpp
     src/effectssidebar.h
-    src/opencv_qt_conversion.hpp
-    src/opencv_qt_conversion.cpp
+    src/opencvqtprocessor.hpp
+    src/opencvqtprocessor.cpp
 )
 
 # UI files (if you have them)
@@ -60,7 +60,6 @@ add_executable(${PROJECT_NAME}
     ${SOURCES}
     ${UI_FILES}
     ${RESOURCE_FILES}
-    src/opencv_qt_conversion.hpp src/opencv_qt_conversion.cpp
 )
 
 # Link Qt6 libraries

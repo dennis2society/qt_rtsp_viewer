@@ -4,8 +4,7 @@
 #include <QObject>
 #include <QImage>
 
-class VideoEffects : public QObject
-{
+class VideoEffects : public QObject{
     Q_OBJECT
 
 public:
@@ -23,6 +22,7 @@ public:
     // Apply effects to an image
     QImage applyEffects(const QImage &sourceImage);
     QImage applyBlur(const QImage &image, int kernelSize = 10, double sigma = 1.5);
+    QImage applyBrightnessContrastToImage(const QImage &image);
 
     // Get current parameters
     int getBlurAmount() const { return blurAmount; }
@@ -35,6 +35,8 @@ private:
     bool grayscaleEnabled;
     int brightnessAmount;
     int contrastAmount;
+    
+    QImage applyBrightnessContrast(const QImage &image, int brightness, int contrast);
 };
 
 #endif // VIDEOEFFECTS_H

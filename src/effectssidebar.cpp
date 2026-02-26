@@ -104,27 +104,23 @@ void EffectsSidebar::onBlurChanged(int value)
 {
     effects->setBlurAmount(value);
     blurValueLabel->setText(QString::number(value));
-    emit effectsChanged();
 }
 
 void EffectsSidebar::onGrayscaleToggled(bool checked)
 {
     effects->setGrayscaleEnabled(checked);
-    emit effectsChanged();
 }
 
 void EffectsSidebar::onBrightnessChanged(int value)
 {
     effects->setBrightnessAmount(value);
     brightnessValueLabel->setText(QString::number(value));
-    emit effectsChanged();
 }
 
 void EffectsSidebar::onContrastChanged(int value)
 {
     effects->setContrastAmount(value);
     contrastValueLabel->setText(QString::number(value));
-    emit effectsChanged();
 }
 
 void EffectsSidebar::onResetEffects()

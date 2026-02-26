@@ -1,5 +1,5 @@
 #include "videoplayer.h"
-#include "opencv_qt_conversion.hpp"
+#include "opencvqtprocessor.hpp"
 #include <QAudioOutput>
 #include <QFontMetrics>
 #include <QLabel>
@@ -126,12 +126,24 @@ void VideoPlayer::updateFrame(const QVideoFrame &frame)
     }
 
     QImage image = frame.toImage();
+    
+    // Apply brightness and contrast effects
+    int brightness = videoEffects->getBrightnessAmount();
+    int contrast = videoEffects->getContrastAmount();
+    if (brightness != 0 || contrast != 0) {
+        image = videoEffects->applyBrightnessContrastToImage(image);
+    }
+    
+    // Apply grayscale effect
     if (videoEffects->isGrayscaleEnabled()) {
         image = image.convertToFormat(QImage::Format_Grayscale8);
     }
+    
+    // Apply blur effect
     if (videoEffects->getBlurAmount() > 0) {
-        image = OpenCVQtConversion::applyGaussBlur(image, videoEffects->getBlurAmount() * 2 + 1, videoEffects->getBlurAmount() * 0.5);
+        image = OpenCVQtProcessor::applyGaussBlur(image, videoEffects->getBlurAmount() * 2 + 1, videoEffects->getBlurAmount() * 0.5);
     }
+    
     paintFPSOverlay(image, QString("FPS: %1").arg(currentFps, 0, 'f', 1));
     videoWidget->videoSink()->setVideoFrame(QVideoFrame(image));
 }
