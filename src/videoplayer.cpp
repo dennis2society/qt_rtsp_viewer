@@ -81,6 +81,14 @@ void VideoPlayer::startWorker()
     connect(this,   &VideoPlayer::pauseStateChanged,
             worker, &VideoWorker::setPaused);
 
+    // Forward recording signals from worker to VideoPlayer
+    connect(worker, &VideoWorker::recordingStarted,
+            this,   &VideoPlayer::recordingStarted);
+    connect(worker, &VideoWorker::recordingFinished,
+            this,   &VideoPlayer::recordingFinished);
+    connect(worker, &VideoWorker::recordingError,
+            this,   &VideoPlayer::recordingError);
+
     workerThread->start();
 }
 
@@ -126,6 +134,22 @@ void VideoPlayer::pauseVideo()
 void VideoPlayer::resumeVideo()
 {
     emit pauseStateChanged(false);
+}
+
+void VideoPlayer::startRecording(const QString &path, const QString &codec, double fps)
+{
+    if (!worker) return;
+    QMetaObject::invokeMethod(worker, "startRecording",
+                              Qt::QueuedConnection,
+                              Q_ARG(QString, path),
+                              Q_ARG(QString, codec),
+                              Q_ARG(double,  fps));
+}
+
+void VideoPlayer::stopRecording()
+{
+    if (!worker) return;
+    QMetaObject::invokeMethod(worker, "stopRecording", Qt::QueuedConnection);
 }
 
 void VideoPlayer::displayFrame(const QImage &image)

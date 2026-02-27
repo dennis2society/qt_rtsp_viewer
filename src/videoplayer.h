@@ -31,6 +31,8 @@ public:
     void setVideoEffects(VideoEffects *effects);
     void setOverlayEnabled(bool enabled);
     bool isOverlayEnabled() const { return overlayEnabled; }
+    void startRecording(const QString &path, const QString &codec, double fps);
+    void stopRecording();
 
 signals:
     void errorOccurred(const QString &errorMessage);
@@ -40,6 +42,9 @@ signals:
     void startPlayback(const QString &url);
     void stopPlayback();
     void pauseStateChanged(bool paused);
+    void recordingStarted();
+    void recordingFinished(const QString &path);
+    void recordingError(const QString &message);
 
 private slots:
     void onMediaError(QMediaPlayer::Error error, const QString &errorString);

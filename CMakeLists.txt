@@ -30,6 +30,22 @@ find_package(Qt6 REQUIRED COMPONENTS
 
 find_package(OpenCV REQUIRED)
 
+find_package(PkgConfig QUIET)
+if(PkgConfig_FOUND)
+    pkg_check_modules(FFMPEG
+        libavcodec
+        libavformat
+        libavutil
+        libswscale
+    )
+endif()
+
+if(FFMPEG_FOUND)
+    message(STATUS "FFmpeg found – recording support enabled")
+else()
+    message(STATUS "FFmpeg not found – recording support disabled (install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev to enable)")
+endif()
+
 # Source files
 set(SOURCES
     src/main.cpp
@@ -75,6 +91,13 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     Qt6::OpenGLWidgets
     ${OpenCV_LIBS}
 )
+
+if(FFMPEG_FOUND)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE HAVE_FFMPEG)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ${FFMPEG_LIBRARIES})
+    target_include_directories(${PROJECT_NAME} PRIVATE ${FFMPEG_INCLUDE_DIRS})
+    target_compile_options(${PROJECT_NAME} PRIVATE ${FFMPEG_CFLAGS_OTHER})
+endif()
 
 # Set output directory
 set_target_properties(${PROJECT_NAME} PROPERTIES

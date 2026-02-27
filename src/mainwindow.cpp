@@ -1,4 +1,11 @@
 #include "mainwindow.h"
+#include <QDialog>
+#include <QDialogButtonBox>
+#include <QDir>
+#include <QDoubleSpinBox>
+#include <QFileDialog>
+#include <QFileInfo>
+#include <QFormLayout>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLineEdit>
@@ -7,6 +14,115 @@
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
+
+// ---------------------------------------------------------------------------
+// RecordDialog – lets the user pick output file, codec preset and frame rate
+// ---------------------------------------------------------------------------
+class RecordDialog : public QDialog
+{
+public:
+    struct Preset { QString label; QString ext; QString codec; };
+
+    explicit RecordDialog(QWidget *parent = nullptr) : QDialog(parent)
+    {
+        setWindowTitle("Start Recording");
+        setMinimumWidth(500);
+
+        auto *layout = new QVBoxLayout(this);
+        auto *form   = new QFormLayout();
+
+        // Format / codec preset
+        formatCombo = new QComboBox(this);
+        for (const auto &p : presets())
+            formatCombo->addItem(p.label);
+        form->addRow("Format:", formatCombo);
+
+        // Output file path
+        auto *pathRow = new QHBoxLayout();
+        pathEdit      = new QLineEdit(this);
+        pathEdit->setPlaceholderText("Select output file…");
+        auto *browseBtn = new QPushButton("Browse…", this);
+        pathRow->addWidget(pathEdit);
+        pathRow->addWidget(browseBtn);
+        form->addRow("Output file:", pathRow);
+
+        // Frame rate
+        fpsSpinBox = new QDoubleSpinBox(this);
+        fpsSpinBox->setRange(1.0, 120.0);
+        fpsSpinBox->setValue(25.0);
+        fpsSpinBox->setDecimals(2);
+        fpsSpinBox->setSuffix(" fps");
+        form->addRow("Frame rate:", fpsSpinBox);
+
+        layout->addLayout(form);
+
+        auto *buttons = new QDialogButtonBox(
+            QDialogButtonBox::Ok | QDialogButtonBox::Cancel, this);
+        layout->addWidget(buttons);
+
+        // Update file extension when preset changes
+        connect(formatCombo, QOverload<int>::of(&QComboBox::currentIndexChanged),
+                this, [this](int idx) { syncExtension(idx); });
+
+        connect(browseBtn, &QPushButton::clicked, this, [this]() {
+            const auto &ps = presets();
+            int idx  = formatCombo->currentIndex();
+            QString ext = (idx >= 0 && idx < ps.size()) ? ps[idx].ext : "mp4";
+            QString path = QFileDialog::getSaveFileName(
+                this, "Save Recording",
+                QDir::homePath() + "/recording." + ext,
+                QString("Video (*.%1);;All files (*)").arg(ext));
+            if (!path.isEmpty())
+                pathEdit->setText(path);
+        });
+
+        connect(buttons, &QDialogButtonBox::accepted, this, [this]() {
+            if (pathEdit->text().trimmed().isEmpty()) {
+                QMessageBox::warning(this, "No file selected",
+                                     "Please choose an output file.");
+                return;
+            }
+            accept();
+        });
+        connect(buttons, &QDialogButtonBox::rejected, this, &QDialog::reject);
+    }
+
+    QString filePath() const { return pathEdit->text().trimmed(); }
+    QString codec()    const {
+        int idx = formatCombo->currentIndex();
+        const auto &ps = presets();
+        return (idx >= 0 && idx < ps.size()) ? ps[idx].codec : "libx264";
+    }
+    double  fps()      const { return fpsSpinBox->value(); }
+
+private:
+    void syncExtension(int idx)
+    {
+        const auto &ps = presets();
+        if (idx < 0 || idx >= ps.size()) return;
+        QString cur = pathEdit->text().trimmed();
+        if (cur.isEmpty()) return;
+        QFileInfo fi(cur);
+        pathEdit->setText(fi.absolutePath() + "/" +
+                          fi.completeBaseName() + "." + ps[idx].ext);
+    }
+
+    static const QVector<Preset> &presets()
+    {
+        static const QVector<Preset> ps = {
+            { "MP4  –  H.264  (libx264)",       "mp4", "libx264" },
+            { "MP4  –  H.265/HEVC  (libx265)",  "mp4", "libx265" },
+            { "MKV  –  H.264  (libx264)",       "mkv", "libx264" },
+            { "MKV  –  H.265/HEVC  (libx265)",  "mkv", "libx265" },
+            { "AVI  –  H.264  (libx264)",       "avi", "libx264" },
+        };
+        return ps;
+    }
+
+    QComboBox      *formatCombo;
+    QLineEdit      *pathEdit;
+    QDoubleSpinBox *fpsSpinBox;
+};
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent)
@@ -77,6 +193,10 @@ void MainWindow::setupUI()
     pauseButton->setCheckable(true);
     stopButton->setEnabled(false);
     pauseButton->setEnabled(false);
+    recordButton = new QPushButton("\u23fa Record", this);
+    recordButton->setCheckable(true);
+    recordButton->setEnabled(false);
+    recordButton->setToolTip("Record the stream with all effects and overlays applied");
     inputLayout->addWidget(urlLabel);
     inputLayout->addWidget(urlInput);
     inputLayout->addWidget(removeButton);
@@ -87,6 +207,11 @@ void MainWindow::setupUI()
     inputLayout->addWidget(playButton);
     inputLayout->addWidget(pauseButton);
     inputLayout->addWidget(stopButton);
+    QFrame *recSep = new QFrame(this);
+    recSep->setFrameShape(QFrame::VLine);
+    recSep->setFrameShadow(QFrame::Sunken);
+    inputLayout->addWidget(recSep);
+    inputLayout->addWidget(recordButton);
 
     // Username and password fields removed
 
@@ -124,6 +249,18 @@ void MainWindow::connectSignals()
         settings->setValue("OverlayEnabled", enabled);
         settings->sync();
     });
+    connect(recordButton,  &QPushButton::toggled,
+            this,          &MainWindow::onRecordButtonToggled);
+    connect(videoPlayer,   &VideoPlayer::recordingFinished,
+            this,          &MainWindow::onRecordingFinished);
+    connect(videoPlayer,   &VideoPlayer::recordingError,
+            this,          &MainWindow::onRecordingError);
+    // Auto-stop recording when the stream stops for any reason
+    connect(videoPlayer, &VideoPlayer::streamStopped, this, [this]() {
+        if (recordButton->isChecked())
+            videoPlayer->stopRecording();
+        recordButton->setEnabled(false);
+    });
 }
 
 void MainWindow::onPlayButtonClicked()
@@ -147,12 +284,15 @@ void MainWindow::onPlayButtonClicked()
     stopButton->setEnabled(true);
     pauseButton->setEnabled(true);
     pauseButton->setChecked(false);
+    recordButton->setEnabled(true);
     urlInput->setEnabled(false);
 }
 
 void MainWindow::onStopButtonClicked()
 {
-    // Stop the media player
+    // If recording, stop it first (worker will emit recordingFinished)
+    videoPlayer->stopRecording();
+
     videoPlayer->stopStream();
 
     playButton->setEnabled(true);
@@ -178,6 +318,7 @@ void MainWindow::onPlayerError(const QString &errorMessage)
     stopButton->setEnabled(false);
     pauseButton->setEnabled(false);
     pauseButton->setChecked(false);
+    recordButton->setEnabled(false);
     urlInput->setEnabled(true);
 }
 
@@ -190,6 +331,7 @@ void MainWindow::onPlayerStatusChanged(const QString &status)
         stopButton->setEnabled(false);
         pauseButton->setEnabled(false);
         pauseButton->setChecked(false);
+        recordButton->setEnabled(false);
         urlInput->setEnabled(true);
     }
 }
@@ -260,6 +402,46 @@ void MainWindow::autoplayLastStream()
 }
 
 
+
+void MainWindow::onRecordButtonToggled(bool checked)
+{
+    if (checked) {
+        RecordDialog dlg(this);
+        if (dlg.exec() != QDialog::Accepted) {
+            // User cancelled – revert button without re-triggering the slot
+            recordButton->blockSignals(true);
+            recordButton->setChecked(false);
+            recordButton->blockSignals(false);
+            return;
+        }
+        recordButton->setText("\u23f9 Stop Rec");
+        recordButton->setStyleSheet("color: red; font-weight: bold;");
+        videoPlayer->startRecording(dlg.filePath(), dlg.codec(), dlg.fps());
+    } else {
+        videoPlayer->stopRecording();
+    }
+}
+
+void MainWindow::onRecordingFinished(const QString &path)
+{
+    recordButton->blockSignals(true);
+    recordButton->setChecked(false);
+    recordButton->blockSignals(false);
+    recordButton->setText("\u23fa Record");
+    recordButton->setStyleSheet("");
+    QMessageBox::information(this, "Recording Saved",
+                             "Recording saved to:\n" + path);
+}
+
+void MainWindow::onRecordingError(const QString &message)
+{
+    recordButton->blockSignals(true);
+    recordButton->setChecked(false);
+    recordButton->blockSignals(false);
+    recordButton->setText("\u23fa Record");
+    recordButton->setStyleSheet("");
+    QMessageBox::critical(this, "Recording Error", message);
+}
 
 void MainWindow::onRemoveUrlClicked()
 {

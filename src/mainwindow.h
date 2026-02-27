@@ -29,6 +29,9 @@ private slots:
     void onPlayerError(const QString &errorMessage);
     void onPlayerStatusChanged(const QString &status);
     void onRemoveUrlClicked();
+    void onRecordButtonToggled(bool checked);
+    void onRecordingFinished(const QString &path);
+    void onRecordingError(const QString &message);
 
 private:
     void setupUI();
@@ -44,6 +47,7 @@ private:
     QPushButton *stopButton;
     QPushButton *pauseButton;
     QPushButton *removeButton;
+    QPushButton *recordButton;
     VideoPlayer *videoPlayer;
     VideoEffects *videoEffects;
     EffectsSidebar *effectsSidebar;

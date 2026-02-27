@@ -4,6 +4,17 @@
 #include <QFontMetrics>
 #include <QPainter>
 
+#ifdef HAVE_FFMPEG
+extern "C" {
+#include <libavcodec/avcodec.h>
+#include <libavformat/avformat.h>
+#include <libavutil/avutil.h>
+#include <libavutil/imgutils.h>
+#include <libavutil/opt.h>
+#include <libswscale/swscale.h>
+}
+#endif
+
 VideoWorker::VideoWorker(QObject *parent)
     : QObject(parent)
 {
@@ -60,6 +71,10 @@ void VideoWorker::processFrame(const QVideoFrame &frame)
         frozenFrame   = image;
 
         paintFPSOverlay(image, QString("FPS: %1").arg(currentFps, 0, 'f', 1));
+#ifdef HAVE_FFMPEG
+        if (recording)
+            writeRecordingFrame(image);
+#endif
         emit frameReady(image);
     } else {
         if (!frozenFrame.isNull()) {
@@ -128,3 +143,230 @@ void VideoWorker::paintFPSOverlay(QImage &image, const QString &fpsText)
 
     painter.end();
 }
+
+// ---------------------------------------------------------------------------
+// Recording – libavcodec / libavformat / libswscale
+// ---------------------------------------------------------------------------
+
+#ifdef HAVE_FFMPEG
+
+void VideoWorker::startRecording(const QString &path, const QString &codec, double fps)
+{
+#ifdef HAVE_FFMPEG
+    if (recording)
+        stopRecording();
+
+    recPath  = path;
+    recCodec = codec.isEmpty() ? "libx264" : codec;
+    recFps   = (fps > 0) ? fps : 25.0;
+    // openRecorder() is called lazily on the first frame so we know the frame size
+    recording = true;
+#else
+    Q_UNUSED(path)
+    Q_UNUSED(codec)
+    Q_UNUSED(fps)
+    emit recordingError(
+        "Recording is not available.\n"
+        "This application was built without FFmpeg support.\n"
+        "Rebuild with libavcodec, libavformat, libavutil and libswscale installed.");
+#endif
+}
+
+void VideoWorker::stopRecording()
+{
+#ifdef HAVE_FFMPEG
+    if (!recording && !recOpen)
+        return;
+
+    recording = false;
+    if (recOpen) {
+        encodeAndWrite(nullptr); // flush encoder
+        av_write_trailer(fmtCtx);
+        closeRecorder();
+    }
+    emit recordingFinished(recPath);
+#endif
+}
+
+bool VideoWorker::openRecorder(int width, int height)
+{
+    char errbuf[256];
+
+    // Locate encoder
+    const AVCodec *codec = avcodec_find_encoder_by_name(recCodec.toStdString().c_str());
+    if (!codec)
+        codec = avcodec_find_encoder_by_name("libx264"); // fallback
+    if (!codec) {
+        emit recordingError("Could not find H.264 encoder – is libx264 installed?");
+        return false;
+    }
+
+    // Output format context (container is derived from filename extension)
+    int ret = avformat_alloc_output_context2(&fmtCtx, nullptr, nullptr,
+                                             recPath.toStdString().c_str());
+    if (ret < 0 || !fmtCtx) {
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        emit recordingError(QString("Could not create output context: %1").arg(errbuf));
+        return false;
+    }
+
+    // Codec context
+    codecCtx = avcodec_alloc_context3(codec);
+    if (!codecCtx) {
+        emit recordingError("Could not allocate codec context.");
+        closeRecorder();
+        return false;
+    }
+    int fpsInt          = qMax(1, qRound(recFps));
+    codecCtx->width     = width;
+    codecCtx->height    = height;
+    codecCtx->pix_fmt   = AV_PIX_FMT_YUV420P;
+    codecCtx->time_base = { 1, fpsInt };
+    codecCtx->framerate = { fpsInt, 1 };
+    codecCtx->bit_rate  = 4'000'000;
+    if (fmtCtx->oformat->flags & AVFMT_GLOBALHEADER)
+        codecCtx->flags |= AV_CODEC_FLAG_GLOBAL_HEADER;
+
+    AVDictionary *opts = nullptr;
+    av_dict_set(&opts, "preset", "fast", 0);
+    av_dict_set(&opts, "crf",    "23",   0);
+    ret = avcodec_open2(codecCtx, codec, &opts);
+    av_dict_free(&opts);
+    if (ret < 0) {
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        emit recordingError(QString("Could not open codec: %1").arg(errbuf));
+        closeRecorder();
+        return false;
+    }
+
+    // Video stream
+    videoStream = avformat_new_stream(fmtCtx, nullptr);
+    if (!videoStream) {
+        emit recordingError("Could not create video stream.");
+        closeRecorder();
+        return false;
+    }
+    avcodec_parameters_from_context(videoStream->codecpar, codecCtx);
+    videoStream->time_base = codecCtx->time_base;
+
+    // Open output file for writing
+    if (!(fmtCtx->oformat->flags & AVFMT_NOFILE)) {
+        ret = avio_open(&fmtCtx->pb, recPath.toStdString().c_str(), AVIO_FLAG_WRITE);
+        if (ret < 0) {
+            av_strerror(ret, errbuf, sizeof(errbuf));
+            emit recordingError(QString("Could not open output file: %1").arg(errbuf));
+            closeRecorder();
+            return false;
+        }
+    }
+
+    ret = avformat_write_header(fmtCtx, nullptr);
+    if (ret < 0) {
+        av_strerror(ret, errbuf, sizeof(errbuf));
+        emit recordingError(QString("Could not write file header: %1").arg(errbuf));
+        closeRecorder();
+        return false;
+    }
+
+    // YUV420P destination frame – dimensions/format must be set BEFORE av_frame_get_buffer
+    yuvFrame = av_frame_alloc();
+    if (!yuvFrame) {
+        emit recordingError("Could not allocate YUV frame.");
+        closeRecorder();
+        return false;
+    }
+    yuvFrame->format = AV_PIX_FMT_YUV420P;
+    yuvFrame->width  = width;
+    yuvFrame->height = height;
+    if (av_frame_get_buffer(yuvFrame, 0) < 0) {
+        emit recordingError("Could not allocate YUV frame buffer.");
+        closeRecorder();
+        return false;
+    }
+
+    // RGB24 → YUV420P conversion
+    swsCtx = sws_getContext(width, height, AV_PIX_FMT_RGB24,
+                            width, height, AV_PIX_FMT_YUV420P,
+                            SWS_BILINEAR, nullptr, nullptr, nullptr);
+    if (!swsCtx) {
+        emit recordingError("Could not create colour-space conversion context.");
+        closeRecorder();
+        return false;
+    }
+
+    pkt = av_packet_alloc();
+    if (!pkt) {
+        emit recordingError("Could not allocate AVPacket.");
+        closeRecorder();
+        return false;
+    }
+
+    recFrameIndex = 0;
+    recOpen       = true;
+    emit recordingStarted();
+    return true;
+}
+
+void VideoWorker::closeRecorder()
+{
+    if (swsCtx)   { sws_freeContext(swsCtx);        swsCtx      = nullptr; }
+    if (yuvFrame) { av_frame_free(&yuvFrame);        yuvFrame    = nullptr; }
+    if (pkt)      { av_packet_free(&pkt);            pkt         = nullptr; }
+    if (codecCtx) { avcodec_free_context(&codecCtx); codecCtx    = nullptr; }
+    if (fmtCtx)   {
+        if (fmtCtx->pb) avio_closep(&fmtCtx->pb);
+        avformat_free_context(fmtCtx);
+        fmtCtx = nullptr;
+    }
+    videoStream   = nullptr;
+    recOpen       = false;
+    recFrameIndex = 0;
+}
+
+void VideoWorker::encodeAndWrite(AVFrame *frame)
+{
+    if (!codecCtx || !pkt) return;
+
+    int ret = avcodec_send_frame(codecCtx, frame);
+    if (ret < 0 && ret != AVERROR_EOF) return;
+
+    while (true) {
+        ret = avcodec_receive_packet(codecCtx, pkt);
+        if (ret == AVERROR(EAGAIN) || ret == AVERROR_EOF)
+            break;
+        if (ret < 0)
+            break;
+        av_packet_rescale_ts(pkt, codecCtx->time_base, videoStream->time_base);
+        pkt->stream_index = videoStream->index;
+        av_interleaved_write_frame(fmtCtx, pkt);
+        av_packet_unref(pkt);
+    }
+}
+
+void VideoWorker::writeRecordingFrame(const QImage &image)
+{
+    if (!recOpen) {
+        if (!openRecorder(image.width(), image.height())) {
+            recording = false;
+            return;
+        }
+    }
+
+    // swscale requires contiguous RGB24
+    QImage rgb = (image.format() == QImage::Format_RGB888)
+                     ? image
+                     : image.convertToFormat(QImage::Format_RGB888);
+
+    if (av_frame_make_writable(yuvFrame) < 0)
+        return;
+
+    const uint8_t *srcData[1]   = { rgb.constBits() };
+    int            srcStride[1] = { static_cast<int>(rgb.bytesPerLine()) };
+    sws_scale(swsCtx, srcData, srcStride, 0, rgb.height(),
+              yuvFrame->data, yuvFrame->linesize);
+
+    yuvFrame->pts = recFrameIndex++;
+    encodeAndWrite(yuvFrame);
+}
+
+#endif // HAVE_FFMPEG
