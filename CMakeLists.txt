@@ -37,6 +37,8 @@ set(SOURCES
     src/mainwindow.h
     src/videoplayer.cpp
     src/videoplayer.h
+    src/videoworker.cpp
+    src/videoworker.h
     src/videoeffects.cpp
     src/videoeffects.h
     src/effectssidebar.cpp

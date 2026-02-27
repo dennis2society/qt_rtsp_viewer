@@ -10,9 +10,9 @@
 #include <QWidget>
 
 #include "videoeffects.h"
+#include "videoworker.h"
 
 class QLabel;
-class VideoWorker;
 
 
 class VideoPlayer : public QWidget
