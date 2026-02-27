@@ -54,6 +54,14 @@ public:
     void setFaceDetectionEnabled(bool enabled) { faceDetectionEnabled = enabled; }
     bool isFaceDetectionEnabled() const { return faceDetectionEnabled; }
 
+    // Auto-record on motion
+    void setAutoRecordEnabled(bool enabled) { autoRecordEnabled = enabled; }
+    bool isAutoRecordEnabled() const { return autoRecordEnabled; }
+    void setAutoRecordDir(const QString &dir) { autoRecordDir = dir; }
+    QString getAutoRecordDir() const { return autoRecordDir; }
+    void setAutoRecordTimeout(int seconds) { autoRecordTimeout = qBound(1, seconds, 120); }
+    int  getAutoRecordTimeout() const { return autoRecordTimeout; }
+
 private:
     int blurAmount;
     bool grayscaleEnabled;
@@ -66,6 +74,9 @@ private:
     bool motionGraphEnabled = false;
     int  motionGraphSensitivity = 15; // mean abs-diff that saturates the chart
     bool faceDetectionEnabled = false;
+    bool autoRecordEnabled = false;
+    QString autoRecordDir;
+    int autoRecordTimeout = 5; // seconds after last motion peak
     
     QImage applyBrightnessContrast(const QImage &image, int brightness, int contrast);
     QImage applyColorTemperature(const QImage &image, int temperature);

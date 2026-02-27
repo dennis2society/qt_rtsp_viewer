@@ -1,4 +1,5 @@
 #include "effectssidebar.h"
+#include <QFileDialog>
 #include <QGroupBox>
 #include <QHBoxLayout>
 #include <QPushButton>
@@ -79,8 +80,8 @@ void EffectsSidebar::setupUI()
     // Color temperature slider
     QLabel *tempLabel = new QLabel("Color Temp:", this);
     colorTemperatureSlider = new QSlider(Qt::Horizontal, this);
-    colorTemperatureSlider->setMinimum(-100);
-    colorTemperatureSlider->setMaximum(100);
+    colorTemperatureSlider->setMinimum(-128);
+    colorTemperatureSlider->setMaximum(128);
     colorTemperatureSlider->setValue(0);
     colorTemperatureValueLabel = new QLabel("0", this);
     colorTemperatureValueLabel->setMaximumWidth(40);
@@ -172,6 +173,46 @@ void EffectsSidebar::setupUI()
     mainLayout->addWidget(faceGroup);
     connect(faceDetectionCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onFaceDetectionChanged);
 
+    // Auto-record on motion
+    QGroupBox *autoRecGroup = new QGroupBox("Auto-Record on Motion", this);
+    QVBoxLayout *autoRecLayout = new QVBoxLayout();
+    autoRecordCheckBox = new QCheckBox("Enable", this);
+    autoRecordCheckBox->setToolTip(
+        "Automatically start recording when motion level exceeds\n"
+        "the Graph Sensitivity threshold (50 %% of chart scale).\n"
+        "Recording stops after motion drops below threshold for 5 s.");
+    autoRecLayout->addWidget(autoRecordCheckBox);
+
+    QPushButton *dirBtn = new QPushButton("Set Output Directory…", this);
+    autoRecordDirButton = dirBtn;
+    autoRecLayout->addWidget(dirBtn);
+    autoRecordDirLabel = new QLabel("(not set)", this);
+    autoRecordDirLabel->setWordWrap(true);
+    autoRecordDirLabel->setStyleSheet("color: gray; font-size: 10px;");
+    autoRecLayout->addWidget(autoRecordDirLabel);
+
+    // Timeout slider
+    auto *timeoutRow = new QHBoxLayout();
+    timeoutRow->addWidget(new QLabel("Timeout (s):", this));
+    autoRecordTimeoutSlider = new QSlider(Qt::Horizontal, this);
+    autoRecordTimeoutSlider->setRange(1, 120);
+    autoRecordTimeoutSlider->setValue(5);
+    autoRecordTimeoutSlider->setToolTip(
+        "Seconds to keep recording after the last motion peak.\n"
+        "A new recording file starts when motion recurs after timeout.");
+    autoRecordTimeoutLabel = new QLabel("5", this);
+    autoRecordTimeoutLabel->setMaximumWidth(30);
+    timeoutRow->addWidget(autoRecordTimeoutSlider);
+    timeoutRow->addWidget(autoRecordTimeoutLabel);
+    autoRecLayout->addLayout(timeoutRow);
+
+    autoRecGroup->setLayout(autoRecLayout);
+    mainLayout->addWidget(autoRecGroup);
+    connect(autoRecordCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onAutoRecordToggled);
+    connect(dirBtn, &QPushButton::clicked, this, &EffectsSidebar::onAutoRecordDirClicked);
+    connect(autoRecordTimeoutSlider, QOverload<int>::of(&QSlider::valueChanged),
+            this, &EffectsSidebar::onAutoRecordTimeoutChanged);
+
     // Overlay control
     QGroupBox *overlayGroup = new QGroupBox("Display", this);
     QVBoxLayout *overlayLayout = new QVBoxLayout();
@@ -234,6 +275,9 @@ void EffectsSidebar::onResetEffects()
     motionGraphCheckBox->setChecked(false);
     motionGraphSensitivitySlider->setValue(15);
     motionGraphSensitivityLabel->setText("15");
+    autoRecordCheckBox->setChecked(false);
+    autoRecordTimeoutSlider->setValue(5);
+    autoRecordTimeoutLabel->setText("5");
     overlayCheckBox->setChecked(true); // Reset to default (enabled)
     faceDetectionCheckBox->setChecked(false);
 }
@@ -289,4 +333,31 @@ void EffectsSidebar::setOverlayEnabled(bool enabled)
 bool EffectsSidebar::isOverlayEnabled() const
 {
     return overlayCheckBox->isChecked();
+}
+
+void EffectsSidebar::onAutoRecordToggled(bool checked)
+{
+    effects->setAutoRecordEnabled(checked);
+    emit autoRecordToggled(checked);
+    emit effectsChanged();
+}
+
+void EffectsSidebar::onAutoRecordDirClicked()
+{
+    QString dir = QFileDialog::getExistingDirectory(
+        this, "Select Motion Recording Output Directory",
+        effects->getAutoRecordDir().isEmpty() ? QDir::homePath()
+                                              : effects->getAutoRecordDir());
+    if (!dir.isEmpty()) {
+        effects->setAutoRecordDir(dir);
+        autoRecordDirLabel->setText(dir);
+        emit autoRecordDirChanged(dir);
+    }
+}
+
+void EffectsSidebar::onAutoRecordTimeoutChanged(int value)
+{
+    effects->setAutoRecordTimeout(value);
+    autoRecordTimeoutLabel->setText(QString::number(value));
+    emit autoRecordTimeoutChanged(value);
 }

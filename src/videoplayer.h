@@ -33,6 +33,9 @@ public:
     bool isOverlayEnabled() const { return overlayEnabled; }
     void startRecording(const QString &path, const QString &codec, double fps);
     void stopRecording();
+    void setAutoRecordEnabled(bool enabled);
+    void setAutoRecordDir(const QString &dir);
+    void setAutoRecordTimeout(int seconds);
 
 signals:
     void errorOccurred(const QString &errorMessage);
@@ -45,6 +48,8 @@ signals:
     void recordingStarted();
     void recordingFinished(const QString &path);
     void recordingError(const QString &message);
+    void autoRecordingStarted();
+    void autoRecordingStopped(const QString &path);
 
 private slots:
     void onMediaError(QMediaPlayer::Error error, const QString &errorString);

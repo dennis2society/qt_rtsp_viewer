@@ -11,6 +11,7 @@
 #include <QLineEdit>
 #include <QMessageBox>
 #include <QScrollArea>
+#include <QStatusBar>
 #include <QStyle>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -263,6 +264,19 @@ void MainWindow::connectSignals()
             this,          &MainWindow::onRecordingFinished);
     connect(videoPlayer,   &VideoPlayer::recordingError,
             this,          &MainWindow::onRecordingError);
+    // Auto-record on motion: wire sidebar ↔ player
+    connect(effectsSidebar, &EffectsSidebar::autoRecordToggled,
+            videoPlayer,    &VideoPlayer::setAutoRecordEnabled);
+    connect(effectsSidebar, &EffectsSidebar::autoRecordDirChanged,
+            videoPlayer,    &VideoPlayer::setAutoRecordDir);
+    connect(effectsSidebar, &EffectsSidebar::autoRecordTimeoutChanged,
+            videoPlayer,    &VideoPlayer::setAutoRecordTimeout);
+    connect(videoPlayer, &VideoPlayer::autoRecordingStarted, this, [this]() {
+        statusBar()->showMessage("⏺ Auto-recording started (motion detected)", 3000);
+    });
+    connect(videoPlayer, &VideoPlayer::autoRecordingStopped, this, [this](const QString &path) {
+        statusBar()->showMessage("⏹ Auto-recording saved: " + path, 5000);
+    });
     // Auto-stop recording when the stream stops for any reason
     connect(videoPlayer, &VideoPlayer::streamStopped, this, [this]() {
         if (recordButton->isChecked())

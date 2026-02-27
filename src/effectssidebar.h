@@ -4,6 +4,7 @@
 #include "videoeffects.h"
 #include <QCheckBox>
 #include <QLabel>
+#include <QPushButton>
 #include <QSlider>
 #include <QWidget>
 
@@ -27,6 +28,9 @@ public:
 signals:
     void effectsChanged();
     void overlayToggled(bool enabled);
+    void autoRecordToggled(bool enabled);
+    void autoRecordDirChanged(const QString &dir);
+    void autoRecordTimeoutChanged(int seconds);
 
 private slots:
     void onBlurChanged(int value);
@@ -41,6 +45,9 @@ private slots:
     void onMotionGraphSensitivityChanged(int value);
     void onFaceDetectionChanged();
     void onOverlayToggled(bool checked);
+    void onAutoRecordToggled(bool checked);
+    void onAutoRecordDirClicked();
+    void onAutoRecordTimeoutChanged(int value);
 
 private:
     void setupUI();
@@ -72,6 +79,13 @@ private:
 
     // Face detection UI control
     QCheckBox *faceDetectionCheckBox;
+
+    // Auto-record on motion UI controls
+    QCheckBox   *autoRecordCheckBox;
+    QPushButton *autoRecordDirButton;
+    QLabel      *autoRecordDirLabel;
+    QSlider     *autoRecordTimeoutSlider;
+    QLabel      *autoRecordTimeoutLabel;
 
     // Overlay UI control
     QCheckBox *overlayCheckBox;

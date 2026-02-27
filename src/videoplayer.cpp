@@ -88,6 +88,10 @@ void VideoPlayer::startWorker()
             this,   &VideoPlayer::recordingFinished);
     connect(worker, &VideoWorker::recordingError,
             this,   &VideoPlayer::recordingError);
+    connect(worker, &VideoWorker::autoRecordingStarted,
+            this,   &VideoPlayer::autoRecordingStarted);
+    connect(worker, &VideoWorker::autoRecordingStopped,
+            this,   &VideoPlayer::autoRecordingStopped);
 
     workerThread->start();
 }
@@ -150,6 +154,27 @@ void VideoPlayer::stopRecording()
 {
     if (!worker) return;
     QMetaObject::invokeMethod(worker, "stopRecording", Qt::QueuedConnection);
+}
+
+void VideoPlayer::setAutoRecordEnabled(bool enabled)
+{
+    if (!worker) return;
+    QMetaObject::invokeMethod(worker, "setAutoRecordEnabled",
+                              Qt::QueuedConnection, Q_ARG(bool, enabled));
+}
+
+void VideoPlayer::setAutoRecordDir(const QString &dir)
+{
+    if (!worker) return;
+    QMetaObject::invokeMethod(worker, "setAutoRecordDir",
+                              Qt::QueuedConnection, Q_ARG(QString, dir));
+}
+
+void VideoPlayer::setAutoRecordTimeout(int seconds)
+{
+    if (!worker) return;
+    QMetaObject::invokeMethod(worker, "setAutoRecordTimeout",
+                              Qt::QueuedConnection, Q_ARG(int, seconds));
 }
 
 void VideoPlayer::displayFrame(const QImage &image)

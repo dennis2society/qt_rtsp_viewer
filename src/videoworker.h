@@ -10,6 +10,8 @@
 #include "opencvqtprocessor.hpp"
 #include "videoeffects.h"
 
+#include <QDateTime>
+
 #ifdef HAVE_FFMPEG
 // Forward declarations for FFmpeg types (full headers only pulled in by .cpp)
 struct AVFormatContext;
@@ -37,12 +39,17 @@ public slots:
     void setOverlayEnabled(bool enabled);
     void startRecording(const QString &path, const QString &codec, double fps);
     void stopRecording();
+    void setAutoRecordEnabled(bool enabled);
+    void setAutoRecordDir(const QString &dir);
+    void setAutoRecordTimeout(int seconds);
 
 signals:
     void frameReady(const QImage &image);
     void recordingStarted();
     void recordingFinished(const QString &path);
     void recordingError(const QString &message);
+    void autoRecordingStarted();
+    void autoRecordingStopped(const QString &path);
 
 private:
     void paintFPSOverlay(QImage &image, const QString &fpsText);
@@ -73,6 +80,16 @@ private:
     QString             recCodec       = "libx264";
     double              recFps         = 25.0;
     int64_t             recFrameIndex  = 0;
+
+    // Auto-record on motion
+    bool                autoRecordEnabled  = false;
+    QString             autoRecordDir;
+    bool                autoRecording      = false;
+    QDateTime           autoRecStartTime;
+    // Timeout: keep recording for N seconds after the last motion peak
+    int                 autoRecTimeoutMs   = 5000;
+    qint64              lastMotionAboveMs  = 0;
+    static constexpr double kAutoRecTrigger = 0.50; // 50% of graph scale
 #ifdef HAVE_FFMPEG
     AVFormatContext    *fmtCtx         = nullptr;
     AVCodecContext     *codecCtx       = nullptr;
