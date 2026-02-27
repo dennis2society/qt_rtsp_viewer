@@ -10,6 +10,7 @@
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QScrollArea>
 #include <QStyle>
 #include <QTimer>
 #include <QVBoxLayout>
@@ -227,7 +228,14 @@ void MainWindow::setupUI()
     // Initialize video effects and effects sidebar
     videoEffects = new VideoEffects(this);
     effectsSidebar = new EffectsSidebar(videoEffects, this);
-    videoLayout->addWidget(effectsSidebar);
+    
+    // Wrap sidebar in a QScrollArea for scrolling if it exceeds available height
+    QScrollArea *scrollArea = new QScrollArea(this);
+    scrollArea->setWidget(effectsSidebar);
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    videoLayout->addWidget(scrollArea);
 
     mainLayout->addLayout(videoLayout, 1);
 
