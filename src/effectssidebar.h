@@ -32,6 +32,7 @@ private slots:
     void onBlurChanged(int value);
     void onGrayscaleToggled(bool checked);
     void onBrightnessChanged(int value);
+    void onColorTemperatureChanged(int value);
     void onContrastChanged(int value);
     void onResetEffects();
     void onMotionDetectionChanged();
@@ -51,6 +52,8 @@ private:
     QCheckBox *grayscaleCheckBox;
     QSlider *brightnessSlider;
     QLabel *brightnessValueLabel;
+    QSlider *colorTemperatureSlider;
+    QLabel *colorTemperatureValueLabel;
     QSlider *contrastSlider;
     QLabel *contrastValueLabel;
 

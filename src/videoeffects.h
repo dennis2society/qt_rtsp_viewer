@@ -18,6 +18,7 @@ public:
     void setGrayscaleEnabled(bool enabled);
     void setBrightnessAmount(int amount);
     void setContrastAmount(int amount);
+    void setColorTemperature(int temp); // -100 (warm/reddish) to 100 (cool/bluish)
 
     // Motion detection parameters
     void setMotionDetectionEnabled(bool enabled);
@@ -33,6 +34,7 @@ public:
     bool isGrayscaleEnabled() const { return grayscaleEnabled; }
     int getBrightnessAmount() const { return brightnessAmount; }
     int getContrastAmount() const { return contrastAmount; }
+    int getColorTemperature() const { return colorTemperature; }
 
     // Motion detection getters
     bool isMotionDetectionEnabled() const { return motionDetectionEnabled; }
@@ -57,6 +59,7 @@ private:
     bool grayscaleEnabled;
     int brightnessAmount;
     int contrastAmount;
+    int colorTemperature = 0; // -100 (warm) to 100 (cool)
     bool motionDetectionEnabled = false;
     int motionSensitivity = 50;
     bool motionVectorsEnabled = false;
@@ -65,6 +68,7 @@ private:
     bool faceDetectionEnabled = false;
     
     QImage applyBrightnessContrast(const QImage &image, int brightness, int contrast);
+    QImage applyColorTemperature(const QImage &image, int temperature);
 };
 
 #endif // VIDEOEFFECTS_H

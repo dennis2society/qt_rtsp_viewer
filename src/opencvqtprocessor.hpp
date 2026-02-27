@@ -42,6 +42,14 @@ public:
     // Draws a sliding-window motion bar chart onto drawTarget
     QImage applyMotionGraphOverlay(const QImage &drawTarget, double motionLevel);
 
+    // Brightness / contrast – LUT-based, SIMD-accelerated via cv::LUT
+    QImage applyBrightnessContrast(const QImage &image, int brightness, int contrast);
+
+    // Color temperature adjustment
+    void setColorTemperature(int temp) { colorTemperature = qBound(-100, temp, 100); }
+    int getColorTemperature() const { return colorTemperature; }
+    QImage applyColorTemperature(const QImage &image);
+
     // Grid dimensions for per-cell motion analysis
     static constexpr int kGridCols = 6;
     static constexpr int kGridRows = 4;
@@ -76,4 +84,6 @@ private:
 
     // CSV file for motion logging
     QFile csvFile;
-};
+
+    // Color temperature (-100 warm/reddish to 100 cool/bluish)
+    int colorTemperature = 0;};

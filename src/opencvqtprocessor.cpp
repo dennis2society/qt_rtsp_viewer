@@ -513,3 +513,62 @@ QImage OpenCVQtProcessor::applyMotionGraphOverlay(const QImage &img, double moti
     return out;
 }
 
+QImage OpenCVQtProcessor::applyBrightnessContrast(const QImage &image, int brightness, int contrast)
+{
+    if (image.isNull() || (brightness == 0 && contrast == 0))
+        return image;
+
+    cv::Mat mat = qImageToMat(image);
+    if (mat.empty())
+        return image;
+
+    // Build a 1-channel 256-entry LUT; cv::LUT applies it uniformly to all 3 BGR channels.
+    // This avoids format conversion, per-pixel Qt loops, and floating-point arithmetic at runtime.
+    cv::Mat lut(1, 256, CV_8UC1);
+    const double factor = (contrast + 100.0) / 100.0;
+    uchar *p = lut.ptr<uchar>(0);
+    for (int i = 0; i < 256; ++i) {
+        double v = i + brightness;
+        if (contrast != 0)
+            v = 128.0 + (v - 128.0) * factor;
+        p[i] = cv::saturate_cast<uchar>(v);
+    }
+
+    cv::LUT(mat, lut, workMat1);
+
+    resultImage = QImage(workMat1.data, workMat1.cols, workMat1.rows,
+                         workMat1.step, QImage::Format_BGR888).copy();
+    return resultImage;
+}
+
+QImage OpenCVQtProcessor::applyColorTemperature(const QImage &image)
+{
+    if (image.isNull() || colorTemperature == 0)
+        return image;
+
+    cv::Mat mat = qImageToMat(image);
+    if (mat.empty())
+        return image;
+
+    // Unified scale factors (both branches reduce to the same formula):
+    //   warm (t<0): red boosted, blue cut
+    //   cool (t>0): red cut, blue boosted
+    const double t         = colorTemperature / 100.0; // [-1.0, 1.0]
+    const double redScale  = 1.0 - t * 0.3;
+    const double blueScale = 1.0 + t * 0.3;
+
+    // Build a 3-channel LUT (256 entries, BGR order).
+    // cv::LUT is SIMD-optimised – single integer pass, no float buffers, no channel split.
+    cv::Mat lut(1, 256, CV_8UC3);
+    for (int i = 0; i < 256; ++i) {
+        lut.at<cv::Vec3b>(0, i)[0] = cv::saturate_cast<uchar>(i * blueScale); // B
+        lut.at<cv::Vec3b>(0, i)[1] = static_cast<uchar>(i);                    // G unchanged
+        lut.at<cv::Vec3b>(0, i)[2] = cv::saturate_cast<uchar>(i * redScale);  // R
+    }
+
+    cv::LUT(mat, lut, workMat1);
+
+    resultImage = QImage(workMat1.data, workMat1.cols, workMat1.rows,
+                         workMat1.step, QImage::Format_BGR888).copy();
+    return resultImage;
+}

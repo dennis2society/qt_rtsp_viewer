@@ -46,7 +46,13 @@ void VideoWorker::processFrame(const QVideoFrame &frame)
         int brightness = videoEffects->getBrightnessAmount();
         int contrast   = videoEffects->getContrastAmount();
         if (brightness != 0 || contrast != 0)
-            image = videoEffects->applyBrightnessContrastToImage(image);
+            image = openCVProcessor.applyBrightnessContrast(image, brightness, contrast);
+
+        int colorTemp = videoEffects->getColorTemperature();
+        if (colorTemp != 0) {
+            openCVProcessor.setColorTemperature(colorTemp);
+            image = openCVProcessor.applyColorTemperature(image);
+        }
 
         if (videoEffects->isGrayscaleEnabled())
             image = image.convertToFormat(QImage::Format_Grayscale8);

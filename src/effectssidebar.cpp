@@ -60,6 +60,9 @@ void EffectsSidebar::setupUI()
     // Brightness control
     QGroupBox *brightnessGroup = new QGroupBox("Brightness", this);
     QVBoxLayout *brightnessLayout = new QVBoxLayout();
+    
+    // Brightness slider
+    QLabel *brightnessLabel = new QLabel("Brightness:", this);
     brightnessSlider = new QSlider(Qt::Horizontal, this);
     brightnessSlider->setMinimum(-100);
     brightnessSlider->setMaximum(100);
@@ -69,10 +72,27 @@ void EffectsSidebar::setupUI()
     QHBoxLayout *brightnessHLayout = new QHBoxLayout();
     brightnessHLayout->addWidget(brightnessSlider);
     brightnessHLayout->addWidget(brightnessValueLabel);
+    brightnessLayout->addWidget(brightnessLabel);
     brightnessLayout->addLayout(brightnessHLayout);
+    connect(brightnessSlider, QOverload<int>::of(&QSlider::valueChanged), this, &EffectsSidebar::onBrightnessChanged);
+    
+    // Color temperature slider
+    QLabel *tempLabel = new QLabel("Color Temp:", this);
+    colorTemperatureSlider = new QSlider(Qt::Horizontal, this);
+    colorTemperatureSlider->setMinimum(-100);
+    colorTemperatureSlider->setMaximum(100);
+    colorTemperatureSlider->setValue(0);
+    colorTemperatureValueLabel = new QLabel("0", this);
+    colorTemperatureValueLabel->setMaximumWidth(40);
+    QHBoxLayout *tempHLayout = new QHBoxLayout();
+    tempHLayout->addWidget(colorTemperatureSlider);
+    tempHLayout->addWidget(colorTemperatureValueLabel);
+    brightnessLayout->addWidget(tempLabel);
+    brightnessLayout->addLayout(tempHLayout);
+    connect(colorTemperatureSlider, QOverload<int>::of(&QSlider::valueChanged), this, &EffectsSidebar::onColorTemperatureChanged);
+    
     brightnessGroup->setLayout(brightnessLayout);
     mainLayout->addWidget(brightnessGroup);
-    connect(brightnessSlider, QOverload<int>::of(&QSlider::valueChanged), this, &EffectsSidebar::onBrightnessChanged);
 
     // Contrast control
     QGroupBox *contrastGroup = new QGroupBox("Contrast", this);
@@ -188,6 +208,12 @@ void EffectsSidebar::onBrightnessChanged(int value)
     brightnessValueLabel->setText(QString::number(value));
 }
 
+void EffectsSidebar::onColorTemperatureChanged(int value)
+{
+    effects->setColorTemperature(value);
+    colorTemperatureValueLabel->setText(QString::number(value));
+}
+
 void EffectsSidebar::onContrastChanged(int value)
 {
     effects->setContrastAmount(value);
@@ -199,6 +225,7 @@ void EffectsSidebar::onResetEffects()
     blurSlider->setValue(0);
     grayscaleCheckBox->setChecked(false);
     brightnessSlider->setValue(0);
+    colorTemperatureSlider->setValue(0);
     contrastSlider->setValue(0);
     motionDetectionCheckBox->setChecked(false);
     motionSensitivitySlider->setValue(50);

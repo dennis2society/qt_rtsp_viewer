@@ -1,5 +1,6 @@
 import pandas as pd
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import numpy as np
 
 # Read CSV
@@ -13,6 +14,9 @@ x = log['Milliseconds'] - log['Milliseconds'].iloc[0]
 
 ax.clear()
 ax.plot(x, log['MotionLevel%'], color='royalblue', linewidth=2, label='Motion Level (%)')
+
+# Format x-axis labels to divide by 10
+ax.xaxis.set_major_formatter(ticker.FuncFormatter(lambda val, pos: f'{int(val/10)}'))
 
 # Draw average line
 mean_level = log['MotionLevel%'].mean()
@@ -45,4 +49,5 @@ ax.set_title('Motion Level Over Time')
 ax.grid(True, linestyle='--', alpha=0.4)
 ax.legend()
 plt.tight_layout()
+plt.grid(True, linestyle='--', alpha=0.4)
 plt.show()
