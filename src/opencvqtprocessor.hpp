@@ -1,4 +1,5 @@
 #pragma once
+#include <QFile>
 #include <QImage>
 #include <QElapsedTimer>
 #include <deque>
@@ -8,6 +9,7 @@ class OpenCVQtProcessor
 {
 public:
     OpenCVQtProcessor();
+    ~OpenCVQtProcessor();
     
     cv::Mat qImageToMat(const QImage &img);
     QImage matToQImage(const cv::Mat &mat);
@@ -53,7 +55,13 @@ private:
     std::deque<double> motionHistory;
     double smoothedMotionLevel = 0.0; // Exponentially smoothed motion level
 
+    // Spike rejection: rolling window of raw values used to detect I-frame outliers
+    static constexpr int kSpikeWindowSize = 30; // slightly larger than typical GOP (25)
+    static constexpr double kSpikeFactor  = 3.0; // flag if raw > kSpikeFactor * window median
+    std::deque<double> rawHistory;
+
     // Motion logging timer
     QElapsedTimer motionLogTimer;
     bool motionLogStarted = false;
+    QFile csvFile; // CSV file for motion logging
 };

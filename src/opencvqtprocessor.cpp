@@ -2,18 +2,29 @@
 #include <QPainter>
 #include <QFont>
 #include <QFontMetrics>
-#include <QFile>
 #include <QTextStream>
 #include <QDateTime>
-#include <QElapsedTimer>
 #include <iostream>
 
 const cv::String haarCascadePath = "opencv/haarcascade_frontalface_default.xml";
 
 OpenCVQtProcessor::OpenCVQtProcessor()
-    : sourceMat(), workMat1(), workMat2(), workMat3(), rgbMat(), resultImage()
+    : sourceMat(), workMat1(), workMat2(), workMat3(), rgbMat(), resultImage(), csvFile("motion_log.csv")
 {
-    // Buffers are lazy-allocated on first use to maintain flexibility
+  std::cout << "Opening csv file for motion logging: " << csvFile.fileName().toStdString() << std::endl;
+  if (csvFile.open(QIODevice::WriteOnly | QIODevice::Text)) {
+    QTextStream out(&csvFile);
+    out << "Milliseconds,DateTime,MotionLevel%\n";
+    std::cout << "Motion log CSV file initialized with header.\n";
+  }
+}
+
+OpenCVQtProcessor::~OpenCVQtProcessor()
+{
+  std::cout<< "Closing csv file for motion logging: " << csvFile.fileName().toStdString() << std::endl;
+    if (csvFile.isOpen()) {
+        csvFile.close();
+    }
 }
 
 cv::Mat OpenCVQtProcessor::qImageToMat(const QImage &img)
@@ -265,35 +276,43 @@ QImage OpenCVQtProcessor::applyMotionGraphOverlay(const QImage &img, double moti
     if (img.isNull())
         return img;
 
-    // Apply exponential smoothing to filter out periodic spikes/artifacts
-    // Higher factor (closer to 1.0) = more smoothing; lower (closer to 0.5) = more responsive
-    constexpr double SMOOTHING_FACTOR = 0.85;
-    smoothedMotionLevel = SMOOTHING_FACTOR * smoothedMotionLevel + 
-                          (1.0 - SMOOTHING_FACTOR) * motionLevel;
+    // --- Spike rejection ---
+    // Maintain a rolling window of raw values. If the new value is more than
+    // kSpikeFactor times the window median it is almost certainly an I-frame
+    // DC-refresh artefact, so we clamp it back to the median.
+    rawHistory.push_back(motionLevel);
+    while (static_cast<int>(rawHistory.size()) > kSpikeWindowSize)
+        rawHistory.pop_front();
 
-    // Start timer on first call
-    if (!motionLogStarted) {
-        motionLogTimer.start();
-        motionLogStarted = true;
+    double filteredLevel = motionLevel;
+    if (static_cast<int>(rawHistory.size()) >= 5) {
+        std::vector<double> sorted(rawHistory.begin(), rawHistory.end());
+        std::sort(sorted.begin(), sorted.end());
+        double median = sorted[sorted.size() / 2];
+        if (median > 0.0 && motionLevel > kSpikeFactor * median)
+            filteredLevel = median; // clamp spike to median
     }
 
-    // Log smoothed motion level to CSV with elapsed seconds
-    double deltaSeconds = motionLogTimer.elapsed() / 1000.0;
-    QString timeStr = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    // Exponential smoothing on the spike-filtered value
+    constexpr double SMOOTHING_FACTOR = 0.85;
+    smoothedMotionLevel = SMOOTHING_FACTOR * smoothedMotionLevel +
+                          (1.0 - SMOOTHING_FACTOR) * filteredLevel;
+
+    // Log smoothed motion level to CSV
+    QDateTime now = QDateTime::currentDateTime();
+    qint64 msecsSinceEpoch = now.toMSecsSinceEpoch();
+    QString timeStr = now.toString("yyyy-MM-dd HH:mm:ss");
     QString motionPercent = QString::number(smoothedMotionLevel * 100, 'f', 2);
 
-    QFile csvFile("motion_log.csv");
-    bool fileIsNew = !csvFile.exists();
-
-    if (csvFile.open(QIODevice::Append | QIODevice::Text)) {
-        QTextStream out(&csvFile);
-        // Write header only if this is the first write
-        if (fileIsNew) {
-            out << "deltaSeconds,DateTime,MotionLevel%\n";
+    if (!csvFile.isOpen()) {
+        if (!csvFile.open(QIODevice::Append | QIODevice::Text)) {
+            std::cerr << "Failed to open motion log CSV file for writing.\n";
+            return img;
         }
-        out << QString::number(deltaSeconds, 'f', 3) << "," << timeStr << "," << motionPercent << "\n";
-        csvFile.close();
     }
+    QTextStream outStream(&csvFile);
+    outStream << msecsSinceEpoch << "," << timeStr << "," << motionPercent << "\n";
+    csvFile.close();
 
     // Update history with smoothed value
     motionHistory.push_back(smoothedMotionLevel);
@@ -362,12 +381,12 @@ QImage OpenCVQtProcessor::applyMotionGraphOverlay(const QImage &img, double moti
         p.fillRect(startX + i * barWidth, barBaseY - barH, barWidth, barH, col);
     }
 
-    // Current-value readout (using smoothed level)
+    // Current-value readout
     font.setPointSize(8);
     font.setBold(false);
     p.setFont(font);
     p.setPen(Qt::white);
-    QString pct = QString("%1 %").arg(smoothedMotionLevel * 100, 0, 'f', 2);
+    QString pct = QString("%1 %").arg(motionLevel * 100, 0, 'f', 2);
     p.drawText(boxX + padX + barAreaW - 36, boxY + padY,
                36, labelH, Qt::AlignRight | Qt::AlignVCenter, pct);
 
