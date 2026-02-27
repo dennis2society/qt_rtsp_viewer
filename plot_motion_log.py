@@ -5,9 +5,6 @@ import numpy as np
 # Read CSV
 log = pd.read_csv('motion_log.csv')
 
-# Parse datetime
-log['DateTime'] = pd.to_datetime(log['DateTime'])
-
 # Plot
 fig, ax = plt.subplots(figsize=(12, 5))
 
