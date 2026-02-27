@@ -46,7 +46,7 @@ public:
     QImage applyBrightnessContrast(const QImage &image, int brightness, int contrast);
 
     // Color temperature adjustment
-    void setColorTemperature(int temp) { colorTemperature = qBound(-100, temp, 100); }
+    void setColorTemperature(int temp) { colorTemperature = qBound(-128, temp, 128); }
     int getColorTemperature() const { return colorTemperature; }
     QImage applyColorTemperature(const QImage &image);
 
