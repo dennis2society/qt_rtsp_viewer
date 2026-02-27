@@ -143,17 +143,17 @@ void VideoPlayer::updateFrame(const QVideoFrame &frame)
 
         // Apply blur effect
         if (videoEffects->getBlurAmount() > 0) {
-            image = OpenCVQtProcessor::applyGaussBlur(image, videoEffects->getBlurAmount() * 2 + 1, videoEffects->getBlurAmount() * 0.5);
+            image = openCVProcessor.applyGaussBlur(image, videoEffects->getBlurAmount() * 2 + 1, videoEffects->getBlurAmount() * 0.5);
         }
 
         // Detect and paint motion overlay if enabled
         if (videoEffects->isMotionDetectionEnabled() && !previousFrame.isNull()) {
-            image = OpenCVQtProcessor::applyMotionDetectionOverlay(image, previousFrame, videoEffects->getMotionSensitivity());
+            image = openCVProcessor.applyMotionDetectionOverlay(image, previousFrame, videoEffects->getMotionSensitivity());
         }
 
         // Apply motion vectors overlay if enabled
         if (videoEffects->isMotionVectorsEnabled() && !previousFrame.isNull()) {
-            image = OpenCVQtProcessor::applyMotionVectorsOverlay(image, previousFrame);
+            image = openCVProcessor.applyMotionVectorsOverlay(image, previousFrame);
         }
 
         previousFrame = image.copy();

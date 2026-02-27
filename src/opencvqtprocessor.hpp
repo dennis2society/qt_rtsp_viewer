@@ -6,10 +6,20 @@ class OpenCVQtProcessor
 {
 public:
     OpenCVQtProcessor();
-    static cv::Mat qImageToMat(const QImage &img);
-    static QImage matToQImage(const cv::Mat &mat);
-    static QImage applyGaussBlur(const QImage &img, int kernelSize = 10, double sigma = 1.5);
-    static QImage applyBilateralFilter(const QImage &img, int diameter, double sigmaColor, double sigmaSpace);
-    static QImage applyMotionDetectionOverlay(const QImage &currentFrame, const QImage &previousFrame, int sensitivity);
-    static QImage applyMotionVectorsOverlay(const QImage &currentFrame, const QImage &previousFrame);
+    
+    cv::Mat qImageToMat(const QImage &img);
+    QImage matToQImage(const cv::Mat &mat);
+    QImage applyGaussBlur(const QImage &img, int kernelSize = 10, double sigma = 1.5);
+    QImage applyBilateralFilter(const QImage &img, int diameter, double sigmaColor, double sigmaSpace);
+    QImage applyMotionDetectionOverlay(const QImage &currentFrame, const QImage &previousFrame, int sensitivity);
+    QImage applyMotionVectorsOverlay(const QImage &currentFrame, const QImage &previousFrame);
+
+private:
+    // Reusable buffers to reduce memory allocation overhead
+    cv::Mat sourceMat;     // For qImageToMat conversions
+    cv::Mat workMat1;      // For intermediate operations
+    cv::Mat workMat2;      // For intermediate operations
+    cv::Mat workMat3;      // For intermediate operations
+    cv::Mat rgbMat;        // For RGB conversion in matToQImage
+    QImage resultImage;    // For output image, reused across calls
 };

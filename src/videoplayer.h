@@ -14,6 +14,7 @@
 #include <QThread>
 
 #include "videoeffects.h"
+#include "opencvqtprocessor.hpp"
 
 class VideoWorker;
 
@@ -68,6 +69,7 @@ private:
     QImage frozenFrame;
     QImage previousFrame;
     bool overlayEnabled = true;
+    OpenCVQtProcessor openCVProcessor;  // Instance for processing video frames
 
 };
 

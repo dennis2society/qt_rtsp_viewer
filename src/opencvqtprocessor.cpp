@@ -2,7 +2,9 @@
 #include <iostream>
 
 OpenCVQtProcessor::OpenCVQtProcessor()
+    : sourceMat(), workMat1(), workMat2(), workMat3(), rgbMat(), resultImage()
 {
+    // Buffers are lazy-allocated on first use to maintain flexibility
 }
 
 cv::Mat OpenCVQtProcessor::qImageToMat(const QImage &img)
@@ -11,25 +13,29 @@ cv::Mat OpenCVQtProcessor::qImageToMat(const QImage &img)
         return {};
 
     if (img.format() == QImage::Format_BGR888) {
-        return cv::Mat(img.height(), img.width(), CV_8UC3, const_cast<uchar *>(img.bits()),
-                       img.bytesPerLine()).clone(); // deep copy (safe)
+        sourceMat = cv::Mat(img.height(), img.width(), CV_8UC3, const_cast<uchar *>(img.bits()),
+                            img.bytesPerLine()).clone(); // deep copy (safe)
+        return sourceMat;
     }
 
-    // Fallback
+    // Fallback - convert to BGR888 format
     QImage converted = img.convertToFormat(QImage::Format_BGR888);
-    return cv::Mat(converted.height(), converted.width(), CV_8UC3, const_cast<uchar *>(converted.bits()), converted.bytesPerLine()).clone();
+    sourceMat = cv::Mat(converted.height(), converted.width(), CV_8UC3, const_cast<uchar *>(converted.bits()),
+                        converted.bytesPerLine()).clone();
+    return sourceMat;
 }
 
 QImage OpenCVQtProcessor::matToQImage(const cv::Mat &mat)
 {
     if (mat.type() == CV_8UC3) {
-        cv::Mat rgb;
-        cv::cvtColor(mat, rgb, cv::COLOR_BGR2RGB);
+        cv::cvtColor(mat, rgbMat, cv::COLOR_BGR2RGB);
 
-        return QImage(rgb.data, rgb.cols, rgb.rows, rgb.step,
-                      QImage::Format_RGB888).copy(); // deep copy
+        resultImage = QImage(rgbMat.data, rgbMat.cols, rgbMat.rows, rgbMat.step,
+                             QImage::Format_RGB888).copy(); // deep copy
+        return resultImage;
     } else if (mat.type() == CV_8UC4) {
-        return QImage(mat.data, mat.cols, mat.rows, mat.step, QImage::Format_ARGB32).copy();
+        resultImage = QImage(mat.data, mat.cols, mat.rows, mat.step, QImage::Format_ARGB32).copy();
+        return resultImage;
     }
 
     return {};
@@ -49,12 +55,13 @@ QImage OpenCVQtProcessor::applyGaussBlur(const QImage &img, int kernelSize, doub
     if (src.empty())
         return {};
 
-    cv::Mat blurred;
-    cv::GaussianBlur(src, blurred, cv::Size(kernelSize, kernelSize), sigma);
+    // Reuse workMat1 for the blurred result
+    cv::GaussianBlur(src, workMat1, cv::Size(kernelSize, kernelSize), sigma);
 
-    // Wrap result back into QImage
-    return QImage(blurred.data, blurred.cols, blurred.rows, blurred.step,
-                  QImage::Format_BGR888).copy(); // deep copy to detach from cv::Mat memory
+    // Store in member and return copy
+    resultImage = QImage(workMat1.data, workMat1.cols, workMat1.rows, workMat1.step,
+                         QImage::Format_BGR888).copy();
+    return resultImage;
 }
 
 QImage OpenCVQtProcessor::applyBilateralFilter(const QImage &img, int diameter, double sigmaColor, double sigmaSpace)
@@ -66,11 +73,13 @@ QImage OpenCVQtProcessor::applyBilateralFilter(const QImage &img, int diameter, 
     if (src.empty())
         return {};
 
-    cv::Mat filtered;
-    cv::bilateralFilter(src, filtered, diameter, sigmaColor, sigmaSpace);
+    // Reuse workMat1 for the filtered result
+    cv::bilateralFilter(src, workMat1, diameter, sigmaColor, sigmaSpace);
 
-    return QImage(filtered.data, filtered.cols, filtered.rows, filtered.step,
-                  QImage::Format_BGR888).copy(); // deep copy to detach from cv::Mat memory
+    // Store in member and return copy
+    resultImage = QImage(workMat1.data, workMat1.cols, workMat1.rows, workMat1.step,
+                         QImage::Format_BGR888).copy();
+    return resultImage;
 }
 
 QImage OpenCVQtProcessor::applyMotionDetectionOverlay(const QImage &currentFrame, const QImage &previousFrame, int sensitivity)
@@ -84,28 +93,32 @@ QImage OpenCVQtProcessor::applyMotionDetectionOverlay(const QImage &currentFrame
     if (currentMat.empty() || previousMat.empty())
         return {};
 
-    cv::Mat grayCurrent, grayPrevious;
-    cv::cvtColor(currentMat, grayCurrent, cv::COLOR_BGR2GRAY);
-    cv::cvtColor(previousMat, grayPrevious, cv::COLOR_BGR2GRAY);
+    // Reuse workMat1 and workMat2 for grayscale conversions
+    cv::cvtColor(currentMat, workMat1, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(previousMat, workMat2, cv::COLOR_BGR2GRAY);
 
-    cv::Mat diff;
-    cv::absdiff(grayCurrent, grayPrevious, diff);
+    // Reuse workMat3 for diff and threshold operations
+    cv::absdiff(workMat1, workMat2, workMat3);
 
     cv::Mat thresh;
-    cv::threshold(diff, thresh, sensitivity, 255, cv::THRESH_BINARY);
+    cv::threshold(workMat3, thresh, sensitivity, 255, cv::THRESH_BINARY);
 
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(thresh, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
+    // Draw on a copy of currentMat
+    cv::Mat resultMat = currentMat.clone();
     for (const auto &contour : contours) {
         if (cv::contourArea(contour) > 500) { // Filter small contours
             cv::Rect boundingBox = cv::boundingRect(contour);
-            cv::rectangle(currentMat, boundingBox, cv::Scalar(0, 0, 255), 2); // Red rectangle
+            cv::rectangle(resultMat, boundingBox, cv::Scalar(0, 0, 255), 2); // Red rectangle
         }
     }
 
-    return QImage(currentMat.data, currentMat.cols, currentMat.rows, currentMat.step,
-                  QImage::Format_BGR888).copy(); // deep copy to detach from cv::Mat memory
+    // Store in member and return copy
+    resultImage = QImage(resultMat.data, resultMat.cols, resultMat.rows, resultMat.step,
+                         QImage::Format_BGR888).copy();
+    return resultImage;
 }
 
 QImage OpenCVQtProcessor::applyMotionVectorsOverlay(const QImage &currentFrame, const QImage &previousFrame)
@@ -119,23 +132,22 @@ QImage OpenCVQtProcessor::applyMotionVectorsOverlay(const QImage &currentFrame, 
     if (currentMat.empty() || previousMat.empty())
         return currentFrame;
 
-    // Convert to grayscale for optical flow calculation
-    cv::Mat grayCurrent, grayPrevious;
-    cv::cvtColor(currentMat, grayCurrent, cv::COLOR_BGR2GRAY);
-    cv::cvtColor(previousMat, grayPrevious, cv::COLOR_BGR2GRAY);
+    // Convert to grayscale for optical flow calculation, reusing workMat1 and workMat2
+    cv::cvtColor(currentMat, workMat1, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(previousMat, workMat2, cv::COLOR_BGR2GRAY);
 
     // Downsample for faster computation (optical flow is expensive)
     float scale = 0.1f;
     cv::Mat grayCurrentSmall, grayPreviousSmall;
-    cv::resize(grayCurrent, grayCurrentSmall, cv::Size(), scale, scale, cv::INTER_LINEAR);
-    cv::resize(grayPrevious, grayPreviousSmall, cv::Size(), scale, scale, cv::INTER_LINEAR);
+    cv::resize(workMat1, grayCurrentSmall, cv::Size(), scale, scale, cv::INTER_LINEAR);
+    cv::resize(workMat2, grayPreviousSmall, cv::Size(), scale, scale, cv::INTER_LINEAR);
 
     // Calculate optical flow using Farneback method with optimized parameters
     cv::Mat flow;
     cv::calcOpticalFlowFarneback(grayPreviousSmall, grayCurrentSmall, flow, 0.5, 2, 9, 2, 5, 1.1, 0);
 
-    // Draw motion vectors on the frame
-    cv::Mat resultMat = currentMat.clone();
+    // Draw motion vectors on the frame, reusing workMat3
+    workMat3 = currentMat.clone();
     
     // Grid spacing for vector visualization (on downsampled space, then scale to original)
     int stepSize = 10;
@@ -166,14 +178,16 @@ QImage OpenCVQtProcessor::applyMotionVectorsOverlay(const QImage &currentFrame, 
                 cv::Scalar arrowColor(255 - colorVal, 128, colorVal); // BGR format
                 
                 // Draw arrow (simplified line instead of arrowedLine for performance)
-                cv::line(resultMat, p1, p2, arrowColor, 2, cv::LINE_AA);
+                cv::line(workMat3, p1, p2, arrowColor, 2, cv::LINE_AA);
                 // Draw small circle at start point
-                cv::circle(resultMat, p1, 2, arrowColor, -1);
+                cv::circle(workMat3, p1, 2, arrowColor, -1);
             }
         }
     }
 
-    return QImage(resultMat.data, resultMat.cols, resultMat.rows, resultMat.step,
-                  QImage::Format_BGR888).copy();
+    // Store in member and return copy
+    resultImage = QImage(workMat3.data, workMat3.cols, workMat3.rows, workMat3.step,
+                         QImage::Format_BGR888).copy();
+    return resultImage;
 }
 

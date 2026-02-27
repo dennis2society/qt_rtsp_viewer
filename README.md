@@ -1,12 +1,12 @@
 # Qt RTSP Viewer
 
-This is a simple Qt application to view an RTSP stream from the provided URL
-with basic effects processing.
+This is a simple Qt6 application to view an RTSP stream from the provided URL
+with basic effects processing and optional motion detection.
 
 ![Screenshot](qt_rtsp_viewer_screenshot.jpg)
 
 ## Dependencies
-- Qt(6)
+- Qt6
 - OpenCV C++ dev libraries
 - at least one RTSP camera with a known "rtsp://..." URL
 
