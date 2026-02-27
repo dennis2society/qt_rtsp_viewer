@@ -111,12 +111,21 @@ void EffectsSidebar::setupUI()
     // Motion vectors control
     motionVectorsCheckBox = new QCheckBox("Motion Vectors", this);
     motionLayout->addWidget(motionVectorsCheckBox);
-    
+
     motionGroup->setLayout(motionLayout);
     mainLayout->addWidget(motionGroup);
     connect(motionDetectionCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onMotionDetectionChanged);
     connect(motionSensitivitySlider, QOverload<int>::of(&QSlider::valueChanged), this, &EffectsSidebar::onMotionDetectionChanged);
     connect(motionVectorsCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onMotionVectorsChanged);
+
+    // Face detection control
+    QGroupBox *faceGroup = new QGroupBox("Face Detection", this);
+    QVBoxLayout *faceLayout = new QVBoxLayout();
+    faceDetectionCheckBox = new QCheckBox("Detect Faces", this);
+    faceLayout->addWidget(faceDetectionCheckBox);
+    faceGroup->setLayout(faceLayout);
+    mainLayout->addWidget(faceGroup);
+    connect(faceDetectionCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onFaceDetectionChanged);
 
     // Overlay control
     QGroupBox *overlayGroup = new QGroupBox("Display", this);
@@ -171,6 +180,7 @@ void EffectsSidebar::onResetEffects()
     motionSensitivityLabel->setText("50");
     motionVectorsCheckBox->setChecked(false);
     overlayCheckBox->setChecked(true); // Reset to default (enabled)
+    faceDetectionCheckBox->setChecked(false);
 }
 
 const int EffectsSidebar::getBlurValue()
@@ -189,6 +199,12 @@ void EffectsSidebar::onMotionDetectionChanged()
 void EffectsSidebar::onMotionVectorsChanged()
 {
     effects->setMotionVectorsEnabled(motionVectorsCheckBox->isChecked());
+    emit effectsChanged();
+}
+
+void EffectsSidebar::onFaceDetectionChanged()
+{
+    effects->setFaceDetectionEnabled(faceDetectionCheckBox->isChecked());
     emit effectsChanged();
 }
 

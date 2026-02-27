@@ -1,6 +1,8 @@
 #include "opencvqtprocessor.hpp"
 #include <iostream>
 
+const cv::String haarCascadePath = "opencv/haarcascade_frontalface_default.xml";
+
 OpenCVQtProcessor::OpenCVQtProcessor()
     : sourceMat(), workMat1(), workMat2(), workMat3(), rgbMat(), resultImage()
 {
@@ -187,6 +189,53 @@ QImage OpenCVQtProcessor::applyMotionVectorsOverlay(const QImage &currentFrame, 
 
     // Store in member and return copy
     resultImage = QImage(workMat3.data, workMat3.cols, workMat3.rows, workMat3.step,
+                         QImage::Format_BGR888).copy();
+    return resultImage;
+}
+
+QImage OpenCVQtProcessor::applyFaceDetection(const QImage &img)
+{
+    if (img.isNull())
+        return img;
+
+    // Lazy-load the Haar cascade on first use
+    if (!faceCascadeLoaded) {
+        faceCascadeLoaded = faceCascade.load(haarCascadePath);
+    }
+    if (!faceCascadeLoaded || faceCascade.empty())
+        return img;
+
+    cv::Mat src = qImageToMat(img);
+    if (src.empty())
+        return img;
+
+    // Downsample for faster detection
+    constexpr float scale = 0.5f;
+    cv::Mat small;
+    cv::resize(src, small, cv::Size(), scale, scale, cv::INTER_LINEAR);
+
+    cv::Mat gray;
+    cv::cvtColor(small, gray, cv::COLOR_BGR2GRAY);
+    cv::equalizeHist(gray, gray);
+
+    std::vector<cv::Rect> faces;
+    faceCascade.detectMultiScale(gray, faces,
+        /*scaleFactor=*/1.1,
+        /*minNeighbors=*/4,
+        /*flags=*/0,
+        /*minSize=*/cv::Size(30, 30));
+
+    // Draw green bounding boxes scaled back to original resolution
+    cv::Mat result = src.clone();
+    for (const cv::Rect &r : faces) {
+        cv::Rect orig(static_cast<int>(r.x / scale),
+                      static_cast<int>(r.y / scale),
+                      static_cast<int>(r.width / scale),
+                      static_cast<int>(r.height / scale));
+        cv::rectangle(result, orig, cv::Scalar(0, 255, 0), 2);
+    }
+
+    resultImage = QImage(result.data, result.cols, result.rows, result.step,
                          QImage::Format_BGR888).copy();
     return resultImage;
 }

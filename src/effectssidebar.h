@@ -36,6 +36,7 @@ private slots:
     void onResetEffects();
     void onMotionDetectionChanged();
     void onMotionVectorsChanged();
+    void onFaceDetectionChanged();
     void onOverlayToggled(bool checked);
 
 private:
@@ -58,6 +59,9 @@ private:
 
     // Motion vectors UI control
     QCheckBox *motionVectorsCheckBox;
+
+    // Face detection UI control
+    QCheckBox *faceDetectionCheckBox;
 
     // Overlay UI control
     QCheckBox *overlayCheckBox;

@@ -42,6 +42,10 @@ public:
     void setMotionVectorsEnabled(bool enabled) { motionVectorsEnabled = enabled; }
     bool isMotionVectorsEnabled() const { return motionVectorsEnabled; }
 
+    // Face detection
+    void setFaceDetectionEnabled(bool enabled) { faceDetectionEnabled = enabled; }
+    bool isFaceDetectionEnabled() const { return faceDetectionEnabled; }
+
 private:
     int blurAmount;
     bool grayscaleEnabled;
@@ -50,6 +54,7 @@ private:
     bool motionDetectionEnabled = false;
     int motionSensitivity = 50;
     bool motionVectorsEnabled = false;
+    bool faceDetectionEnabled = false;
     
     QImage applyBrightnessContrast(const QImage &image, int brightness, int contrast);
 };

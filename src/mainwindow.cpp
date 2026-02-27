@@ -14,7 +14,7 @@ MainWindow::MainWindow(QWidget *parent)
     , settings(nullptr)
 {
     setWindowTitle("Qt RTSP Viewer");
-    setGeometry(100, 100, 1000, 700);
+    setGeometry(100, 100, 1200, 900);
 
     // Initialize settings
     settings = new QSettings("QtRtspViewer", "QtRtspViewer", this);

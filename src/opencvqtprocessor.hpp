@@ -13,6 +13,7 @@ public:
     QImage applyBilateralFilter(const QImage &img, int diameter, double sigmaColor, double sigmaSpace);
     QImage applyMotionDetectionOverlay(const QImage &currentFrame, const QImage &previousFrame, int sensitivity);
     QImage applyMotionVectorsOverlay(const QImage &currentFrame, const QImage &previousFrame);
+    QImage applyFaceDetection(const QImage &img);
 
 private:
     // Reusable buffers to reduce memory allocation overhead
@@ -22,4 +23,7 @@ private:
     cv::Mat workMat3;      // For intermediate operations
     cv::Mat rgbMat;        // For RGB conversion in matToQImage
     QImage resultImage;    // For output image, reused across calls
+
+    cv::CascadeClassifier faceCascade; // Haar cascade for face detection
+    bool faceCascadeLoaded = false;
 };

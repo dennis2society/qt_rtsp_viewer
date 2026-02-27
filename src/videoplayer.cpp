@@ -62,6 +62,9 @@ public slots:
             if (videoEffects->isMotionVectorsEnabled() && !previousFrame.isNull())
                 image = openCVProcessor.applyMotionVectorsOverlay(image, previousFrame);
 
+            if (videoEffects->isFaceDetectionEnabled())
+                image = openCVProcessor.applyFaceDetection(image);
+
             previousFrame = image.copy();
             frozenFrame   = image;
 
