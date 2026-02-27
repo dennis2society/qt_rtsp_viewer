@@ -1,7 +1,7 @@
 # Qt RTSP Viewer
 
-This is a simple Qt6 application to view an RTSP stream from the provided URL
-with basic effects processing and optional motion detection.
+This is a Qt6 application to view an RTSP stream from the provided URL
+with basic effects processing and a motion detection playground.
 
 ![Screenshot](qt_rtsp_viewer_screenshot.jpg)
 
@@ -22,5 +22,8 @@ cmake --build build
 This should create the executable in ```./build/bin/```
 
 ## Transparency note
-This application was developed with *heavy* AI assistance (Claude Haiku/Sonnet 4.5, ChatGPT 4.1)
-using github Copilot. I mostly wanted to test what the limits of that. I am a bit impressed.
+This application was developed with <b>heavy</b> AI assistance (Claude Haiku/Sonnet 4.5, ChatGPT 4.1)
+using github Copilot.
+
+
+2026, github (at) dennis2society.de
