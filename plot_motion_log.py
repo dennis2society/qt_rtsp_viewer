@@ -1,7 +1,5 @@
 import pandas as pd
 import matplotlib.pyplot as plt
-import matplotlib.dates as mdates
-from datetime import datetime
 import numpy as np
 
 # Read CSV
