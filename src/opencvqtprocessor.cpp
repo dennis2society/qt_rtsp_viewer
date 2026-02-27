@@ -4,6 +4,7 @@
 #include <QFontMetrics>
 #include <QTextStream>
 #include <QDateTime>
+#include <algorithm>
 #include <iostream>
 
 const cv::String haarCascadePath = "opencv/haarcascade_frontalface_default.xml";
@@ -237,38 +238,111 @@ QImage OpenCVQtProcessor::applyFaceDetection(const QImage &drawTarget,
 
 double OpenCVQtProcessor::computeMotionLevel(const QImage &currentFrame,
                                               const QImage &previousFrame,
-                                              int /*sensitivity*/)
+                                              int sensitivity)
 {
     if (currentFrame.isNull() || previousFrame.isNull())
         return 0.0;
 
-    // Fully self-contained: convert locally without touching shared member buffers.
-    auto toGray = [](const QImage &img) -> cv::Mat {
+    // Convert to BGR then grayscale – fully local, never touches shared buffers
+    auto toBGRMat = [](const QImage &img) -> cv::Mat {
         QImage bgr = (img.format() == QImage::Format_BGR888)
                          ? img
                          : img.convertToFormat(QImage::Format_BGR888);
-        cv::Mat mat(bgr.height(), bgr.width(), CV_8UC3,
-                    const_cast<uchar *>(bgr.bits()),
-                    static_cast<size_t>(bgr.bytesPerLine()));
+        cv::Mat m(bgr.height(), bgr.width(), CV_8UC3,
+                  const_cast<uchar *>(bgr.bits()),
+                  static_cast<size_t>(bgr.bytesPerLine()));
         cv::Mat gray;
-        cv::cvtColor(mat, gray, cv::COLOR_BGR2GRAY);
-        return gray.clone(); // deep copy before bgr goes out of scope
+        cv::cvtColor(m, gray, cv::COLOR_BGR2GRAY);
+        return gray.clone();
     };
 
-    cv::Mat grayA = toGray(currentFrame);
-    cv::Mat grayB = toGray(previousFrame);
+    cv::Mat grayA = toBGRMat(currentFrame);
+    cv::Mat grayB = toBGRMat(previousFrame);
     if (grayA.empty() || grayB.empty())
         return 0.0;
 
-    // Use mean absolute difference (range 0-255).
-    // A mean diff of ~20 (≈8 % intensity change) is mapped to 1.0 on the chart.
-    // This is far more sensitive than a threshold+pixel-count approach and
-    // works independently of the sensitivity slider.
     cv::Mat diff;
     cv::absdiff(grayA, grayB, diff);
-    double meanDiff = cv::mean(diff)[0]; // 0-255
-    constexpr double kMaxDiff = 20.0;    // mean diff that saturates the chart
-    return std::min(meanDiff / kMaxDiff, 1.0);
+
+    const double maxDiff = static_cast<double>(qMax(1, sensitivity));
+    const int W = diff.cols;
+    const int H = diff.rows;
+
+    // Compute per-cell motion levels (row-major)
+    lastCellLevels.assign(kGridRows * kGridCols, 0.0);
+    for (int row = 0; row < kGridRows; ++row) {
+        for (int col = 0; col < kGridCols; ++col) {
+            int x0 = (col * W) / kGridCols;
+            int y0 = (row * H) / kGridRows;
+            int x1 = ((col + 1) * W) / kGridCols;
+            int y1 = ((row + 1) * H) / kGridRows;
+            cv::Mat cellDiff = diff(cv::Rect(x0, y0, x1 - x0, y1 - y0));
+            double cellMean  = cv::mean(cellDiff)[0]; // 0–255
+            lastCellLevels[row * kGridCols + col] = std::min(cellMean / maxDiff, 1.0);
+        }
+    }
+
+    // Per-cell EMA smoothing (same factor as aggregate) to suppress I-frame flicker
+    constexpr double CELL_SMOOTH = 0.85;
+    if (smoothedCellLevels.size() != lastCellLevels.size())
+        smoothedCellLevels.assign(lastCellLevels.size(), 0.0);
+    for (size_t i = 0; i < lastCellLevels.size(); ++i)
+        smoothedCellLevels[i] = CELL_SMOOTH * smoothedCellLevels[i] +
+                                 (1.0 - CELL_SMOOTH) * lastCellLevels[i];
+
+    // Aggregate: 60 % max cell (single hot spot stays prominent) + 40 % overall mean
+    double maxCell  = *std::max_element(lastCellLevels.begin(), lastCellLevels.end());
+    double sumCells = 0.0;
+    for (double v : lastCellLevels) sumCells += v;
+    double meanCells = sumCells / static_cast<double>(lastCellLevels.size());
+    return std::min(0.6 * maxCell + 0.4 * meanCells, 1.0);
+}
+
+QImage OpenCVQtProcessor::applyGridMotionOverlay(const QImage &drawTarget)
+{
+    // smoothedCellLevels is populated by computeMotionLevel (called first in videoworker)
+    if (smoothedCellLevels.empty() || drawTarget.isNull())
+        return drawTarget;
+
+    QImage out = drawTarget.convertToFormat(QImage::Format_ARGB32);
+    const int W = out.width();
+    const int H = out.height();
+
+    QPainter p(&out);
+    p.setRenderHint(QPainter::Antialiasing, false);
+
+    for (int row = 0; row < kGridRows; ++row) {
+        for (int col = 0; col < kGridCols; ++col) {
+            double level = smoothedCellLevels[static_cast<size_t>(row * kGridCols + col)];
+            if (level < 0.15)
+                continue;
+
+            int x0 = (col * W) / kGridCols;
+            int y0 = (row * H) / kGridRows;
+            int cw = ((col + 1) * W) / kGridCols - x0;
+            int ch = ((row + 1) * H) / kGridRows - y0;
+
+            // Fill: green → yellow → red with alpha proportional to level
+            QColor fill;
+            int alpha = static_cast<int>(level * 180);
+            if (level < 0.4)
+                fill = QColor(50, 220, 50, alpha);
+            else if (level < 0.7)
+                fill = QColor(220, 200, 50, alpha);
+            else
+                fill = QColor(220, 50, 50, alpha);
+
+            p.fillRect(x0, y0, cw, ch, fill);
+
+            // Border for clearly active cells
+            if (level > 0.35) {
+                p.setPen(QPen(fill.lighter(170), 2));
+                p.drawRect(x0 + 1, y0 + 1, cw - 2, ch - 2);
+            }
+        }
+    }
+    p.end();
+    return out;
 }
 
 QImage OpenCVQtProcessor::applyMotionGraphOverlay(const QImage &img, double motionLevel)
@@ -277,9 +351,6 @@ QImage OpenCVQtProcessor::applyMotionGraphOverlay(const QImage &img, double moti
         return img;
 
     // --- Spike rejection ---
-    // Maintain a rolling window of raw values. If the new value is more than
-    // kSpikeFactor times the window median it is almost certainly an I-frame
-    // DC-refresh artefact, so we clamp it back to the median.
     rawHistory.push_back(motionLevel);
     while (static_cast<int>(rawHistory.size()) > kSpikeWindowSize)
         rawHistory.pop_front();
@@ -290,31 +361,44 @@ QImage OpenCVQtProcessor::applyMotionGraphOverlay(const QImage &img, double moti
         std::sort(sorted.begin(), sorted.end());
         double median = sorted[sorted.size() / 2];
         if (median > 0.0 && motionLevel > kSpikeFactor * median)
-            filteredLevel = median; // clamp spike to median
+            filteredLevel = median;
     }
 
-    // Exponential smoothing on the spike-filtered value
+    // Exponential smoothing
     constexpr double SMOOTHING_FACTOR = 0.85;
     smoothedMotionLevel = SMOOTHING_FACTOR * smoothedMotionLevel +
                           (1.0 - SMOOTHING_FACTOR) * filteredLevel;
 
-    // Log smoothed motion level to CSV
-    QDateTime now = QDateTime::currentDateTime();
-    qint64 msecsSinceEpoch = now.toMSecsSinceEpoch();
-    QString timeStr = now.toString("yyyy-MM-dd HH:mm:ss");
-    QString motionPercent = QString::number(smoothedMotionLevel * 100, 'f', 2);
-
+    // CSV logging
+    QDateTime now       = QDateTime::currentDateTime();
+    qint64 msecEpoch    = now.toMSecsSinceEpoch();
+    QString timeStr     = now.toString("yyyy-MM-dd HH:mm:ss");
+    QString motionPct   = QString::number(smoothedMotionLevel * 100, 'f', 2);
     if (!csvFile.isOpen()) {
         if (!csvFile.open(QIODevice::Append | QIODevice::Text)) {
             std::cerr << "Failed to open motion log CSV file for writing.\n";
             return img;
         }
     }
-    QTextStream outStream(&csvFile);
-    outStream << msecsSinceEpoch << "," << timeStr << "," << motionPercent << "\n";
+    QTextStream csv(&csvFile);
+    csv << msecEpoch << "," << timeStr << "," << motionPct << "\n";
     csvFile.close();
 
-    // Update history with smoothed value
+    // Store per-row averages (mean of kGridCols cells per row) in cellHistory
+    std::vector<double> rowAvgs(static_cast<size_t>(kGridRows), 0.0);
+    if (!lastCellLevels.empty()) {
+        for (int r = 0; r < kGridRows; ++r) {
+            double sum = 0.0;
+            for (int c = 0; c < kGridCols; ++c)
+                sum += lastCellLevels[static_cast<size_t>(r * kGridCols + c)];
+            rowAvgs[static_cast<size_t>(r)] = sum / kGridCols;
+        }
+    }
+    cellHistory.push_back(rowAvgs);
+    while (static_cast<int>(cellHistory.size()) > kMotionHistorySize)
+        cellHistory.pop_front();
+
+    // Also keep scalar history (for scale reference / value readout)
     motionHistory.push_back(smoothedMotionLevel);
     while (static_cast<int>(motionHistory.size()) > kMotionHistorySize)
         motionHistory.pop_front();
@@ -325,17 +409,26 @@ QImage OpenCVQtProcessor::applyMotionGraphOverlay(const QImage &img, double moti
                      : img.convertToFormat(QImage::Format_ARGB32);
 
     // Layout
-    const int margin    = 16;
-    const int padX      = 10;
-    const int padY      = 8;
-    const int barWidth  = 2;  // pixels per sample
-    const int barAreaW  = kMotionHistorySize * barWidth;
-    const int barAreaH  = 120;
-    const int labelH    = 20;
-    const int boxW      = barAreaW + padX * 2;
-    const int boxH      = barAreaH + labelH + padY * 2;
-    const int boxX      = margin;
-    const int boxY      = out.height() - boxH - margin;
+    const int margin   = 16;
+    const int padX     = 10;
+    const int padY     = 8;
+    const int barWidth = 2;
+    const int barAreaW = kMotionHistorySize * barWidth;
+    const int barAreaH = 120;
+    const int labelH   = 20;
+    const int legendW  = 70; // extra width on right for row legend
+    const int boxW     = barAreaW + padX * 2 + legendW;
+    const int boxH     = barAreaH + labelH + padY * 2;
+    const int boxX     = margin;
+    const int boxY     = out.height() - boxH - margin;
+
+    // Row colours (top row → bottom row)
+    static const QColor rowColors[4] = {
+        QColor(70,  140, 255), // row 0: blue
+        QColor(70,  220, 140), // row 1: teal
+        QColor(255, 180,  60), // row 2: amber
+        QColor(220,  70,  70), // row 3: red
+    };
 
     QPainter p(&out);
     p.setRenderHint(QPainter::Antialiasing, false);
@@ -352,43 +445,69 @@ QImage OpenCVQtProcessor::applyMotionGraphOverlay(const QImage &img, double moti
     p.drawText(boxX + padX, boxY + padY, barAreaW, labelH,
                Qt::AlignLeft | Qt::AlignVCenter, "Motion Level");
 
-    // Draw grid line at 50 %
-    int gridY = boxY + padY + labelH + barAreaH / 2;
+    // 50 % grid line
+    int gridY    = boxY + padY + labelH + barAreaH / 2;
     p.setPen(QColor(255, 255, 255, 60));
     p.drawLine(boxX + padX, gridY, boxX + padX + barAreaW, gridY);
 
-    // Draw each bar
-    int numSamples = static_cast<int>(motionHistory.size());
+    // Draw stacked bars: each bar is split into kGridRows coloured segments
+    int numSamples = static_cast<int>(cellHistory.size());
     int startX     = boxX + padX + (kMotionHistorySize - numSamples) * barWidth;
     int barBaseY   = boxY + padY + labelH + barAreaH;
 
     for (int i = 0; i < numSamples; ++i) {
-        double level = motionHistory[static_cast<size_t>(i)];
-        int barH = static_cast<int>(level * barAreaH);
-        // No artificial floor: show true zero as no bar
-        if (barH < 1)
+        double totalLevel = motionHistory[static_cast<size_t>(i)];
+        int    totalBarH  = static_cast<int>(totalLevel * barAreaH);
+        if (totalBarH < 1)
             continue;
 
-        // Color: green → yellow → red
-        QColor col;
-        if (level < 0.25)
-            col = QColor(50, 220, 50);
-        else if (level < 0.5)
-            col = QColor(220, 200, 30);
-        else
-            col = QColor(220, 50, 50);
+        const auto &rows = cellHistory[static_cast<size_t>(i)];
 
-        p.fillRect(startX + i * barWidth, barBaseY - barH, barWidth, barH, col);
+        // Sum of row averages (to normalise proportional heights)
+        double rowSum = 0.0;
+        for (double rv : rows) rowSum += rv;
+        if (rowSum < 1e-9) rowSum = 1e-9;
+
+        int barX   = startX + i * barWidth;
+        int segTop = barBaseY - totalBarH; // top of the entire stacked bar
+
+        // Draw each row segment from bottom (row 3) to top (row 0)
+        int curY = barBaseY;
+        for (int r = kGridRows - 1; r >= 0; --r) {
+            double rowFrac = rows[static_cast<size_t>(r)] / rowSum;
+            int    segH    = static_cast<int>(rowFrac * totalBarH);
+            if (segH < 1) continue;
+            int segY = curY - segH;
+            if (segY < segTop) { segH -= (segTop - segY); segY = segTop; }
+            if (segH < 1) continue;
+            p.fillRect(barX, segY, barWidth, segH, rowColors[r]);
+            curY = segY;
+        }
     }
 
-    // Current-value readout
+    // Row colour legend (right of bar area)
+    int lx = boxX + padX + barAreaW + 6;
+    font.setPointSize(7);
+    font.setBold(false);
+    p.setFont(font);
+    int legendRowH = barAreaH / kGridRows;
+    for (int r = 0; r < kGridRows; ++r) {
+        int ly = boxY + padY + labelH + r * legendRowH;
+        p.fillRect(lx, ly + 2, 8, legendRowH - 4, rowColors[r]);
+        p.setPen(Qt::white);
+        p.drawText(lx + 11, ly, legendW - 12, legendRowH,
+                   Qt::AlignLeft | Qt::AlignVCenter,
+                   QString("R%1").arg(r));
+    }
+
+    // Percentage readout
     font.setPointSize(8);
     font.setBold(false);
     p.setFont(font);
     p.setPen(Qt::white);
-    QString pct = QString("%1 %").arg(motionLevel * 100, 0, 'f', 2);
-    p.drawText(boxX + padX + barAreaW - 36, boxY + padY,
-               36, labelH, Qt::AlignRight | Qt::AlignVCenter, pct);
+    QString pct = QString("%1 %").arg(smoothedMotionLevel * 100, 0, 'f', 2);
+    p.drawText(boxX + padX + barAreaW - 44, boxY + padY,
+               44, labelH, Qt::AlignRight | Qt::AlignVCenter, pct);
 
     p.end();
     return out;

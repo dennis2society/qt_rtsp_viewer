@@ -81,6 +81,8 @@ void VideoWorker::processFrame(const QVideoFrame &frame)
             double level = openCVProcessor.computeMotionLevel(
                 cleanImage, cleanPreviousFrame,
                 videoEffects->getMotionGraphSensitivity());
+            // Grid highlight overlay (uses lastCellLevels populated by computeMotionLevel above)
+            result = openCVProcessor.applyGridMotionOverlay(result);
             result = openCVProcessor.applyMotionGraphOverlay(result, level);
         }
 

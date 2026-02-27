@@ -3,6 +3,7 @@
 #include <QImage>
 #include <QElapsedTimer>
 #include <deque>
+#include <vector>
 #include <opencv2/opencv.hpp>
 
 class OpenCVQtProcessor
@@ -28,15 +29,25 @@ public:
                                      const QImage &cleanPrevious);
     QImage applyFaceDetection(const QImage &drawTarget, const QImage &cleanSource);
 
-    // Returns fraction [0.0, 1.0] of motion between clean frames
+    // Returns fraction [0.0, 1.0] representing motion between clean frames.
+    // Internally subdivides the frame into a kGridRows×kGridCols grid and stores
+    // per-cell levels in lastCellLevels.  The aggregate gives extra weight to the
+    // single hottest cell so that localised motion is not swamped by quiet areas.
     double computeMotionLevel(const QImage &cleanCurrent,
                               const QImage &cleanPrevious,
                               int sensitivity);
+    // Draws semi-transparent coloured rectangles on cells with high motion.
+    // Must be called after computeMotionLevel (reads lastCellLevels internally).
+    QImage applyGridMotionOverlay(const QImage &drawTarget);
     // Draws a sliding-window motion bar chart onto drawTarget
     QImage applyMotionGraphOverlay(const QImage &drawTarget, double motionLevel);
 
     // Reset motion logging (clears log file and restarts timer)
     void resetMotionLog();
+
+    // Grid dimensions for per-cell motion analysis
+    static constexpr int kGridCols = 6;
+    static constexpr int kGridRows = 4;
 
 private:
     // Reusable buffers to reduce memory allocation overhead
@@ -53,6 +64,12 @@ private:
     // Motion graph history (sliding window)
     static constexpr int kMotionHistorySize = 120;
     std::deque<double> motionHistory;
+    // Per-cell history: one vector<double> (kGridRows×kGridCols) per sample
+    std::deque<std::vector<double>> cellHistory;
+    // Last computed per-cell motion levels (kGridRows×kGridCols, row-major)
+    std::vector<double> lastCellLevels;
+    // Per-cell EMA-smoothed levels – used by applyGridMotionOverlay to avoid flicker
+    std::vector<double> smoothedCellLevels;
     double smoothedMotionLevel = 0.0; // Exponentially smoothed motion level
 
     // Spike rejection: rolling window of raw values used to detect I-frame outliers
