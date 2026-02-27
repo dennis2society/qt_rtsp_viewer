@@ -1,7 +1,9 @@
 #include "mainwindow.h"
+#include <QFrame>
 #include <QHBoxLayout>
 #include <QLineEdit>
 #include <QMessageBox>
+#include <QStyle>
 #include <QTimer>
 #include <QVBoxLayout>
 #include <QWidget>
@@ -63,10 +65,28 @@ void MainWindow::setupUI()
     removeButton = new QPushButton("Remove", this);
     removeButton->setMaximumWidth(80);
     removeButton->setToolTip("Remove the selected URL from history.");
+    playButton = new QPushButton(this);
+    playButton->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
+    playButton->setToolTip("Play");
+    stopButton = new QPushButton(this);
+    stopButton->setIcon(style()->standardIcon(QStyle::SP_MediaStop));
+    stopButton->setToolTip("Stop");
+    pauseButton = new QPushButton(this);
+    pauseButton->setIcon(style()->standardIcon(QStyle::SP_MediaPause));
+    pauseButton->setToolTip("Pause");
+    pauseButton->setCheckable(true);
+    stopButton->setEnabled(false);
+    pauseButton->setEnabled(false);
     inputLayout->addWidget(urlLabel);
     inputLayout->addWidget(urlInput);
     inputLayout->addWidget(removeButton);
-    inputLayout->addStretch();
+    QFrame *separator = new QFrame(this);
+    separator->setFrameShape(QFrame::VLine);
+    separator->setFrameShadow(QFrame::Sunken);
+    inputLayout->addWidget(separator);
+    inputLayout->addWidget(playButton);
+    inputLayout->addWidget(pauseButton);
+    inputLayout->addWidget(stopButton);
 
     // Username and password fields removed
 
@@ -85,20 +105,6 @@ void MainWindow::setupUI()
     videoLayout->addWidget(effectsSidebar);
 
     mainLayout->addLayout(videoLayout, 1);
-
-    // Button layout
-    QHBoxLayout *buttonLayout = new QHBoxLayout();
-    playButton = new QPushButton("Play", this);
-    stopButton = new QPushButton("Stop", this);
-    pauseButton = new QPushButton("Pause", this);
-    pauseButton->setCheckable(true);
-    stopButton->setEnabled(false);
-    pauseButton->setEnabled(false);
-    buttonLayout->addWidget(playButton);
-    buttonLayout->addWidget(pauseButton);
-    buttonLayout->addWidget(stopButton);
-    buttonLayout->addStretch();
-    mainLayout->addLayout(buttonLayout);
 
     centralWidget->setLayout(mainLayout);
     videoPlayer->setVideoEffects(videoEffects);
