@@ -42,9 +42,6 @@ public:
     // Draws a sliding-window motion bar chart onto drawTarget
     QImage applyMotionGraphOverlay(const QImage &drawTarget, double motionLevel);
 
-    // Reset motion logging (clears log file and restarts timer)
-    void resetMotionLog();
-
     // Grid dimensions for per-cell motion analysis
     static constexpr int kGridCols = 6;
     static constexpr int kGridRows = 4;
@@ -77,8 +74,6 @@ private:
     static constexpr double kSpikeFactor  = 3.0; // flag if raw > kSpikeFactor * window median
     std::deque<double> rawHistory;
 
-    // Motion logging timer
-    QElapsedTimer motionLogTimer;
-    bool motionLogStarted = false;
-    QFile csvFile; // CSV file for motion logging
+    // CSV file for motion logging
+    QFile csvFile;
 };
