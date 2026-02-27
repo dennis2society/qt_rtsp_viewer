@@ -59,7 +59,9 @@ private:
     bool                overlayEnabled = true;
     QVideoFrame         lastFrame;
     QImage              frozenFrame;
-    QImage              previousFrame;
+    // cleanPreviousFrame: overlay-free snapshot, used by ALL detection/graph functions
+    QImage              cleanPreviousFrame;
+    bool                motionLogResetOnStream = false; // Track if we've reset log for this stream
     QElapsedTimer       fpsTimer;
     int                 frameCount     = 0;
     double              currentFps     = 0.0;

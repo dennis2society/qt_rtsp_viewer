@@ -42,6 +42,12 @@ public:
     void setMotionVectorsEnabled(bool enabled) { motionVectorsEnabled = enabled; }
     bool isMotionVectorsEnabled() const { return motionVectorsEnabled; }
 
+    // Motion graph overlay
+    void setMotionGraphEnabled(bool enabled) { motionGraphEnabled = enabled; }
+    bool isMotionGraphEnabled() const { return motionGraphEnabled; }
+    void setMotionGraphSensitivity(int s) { motionGraphSensitivity = qBound(1, s, 100); }
+    int  getMotionGraphSensitivity() const { return motionGraphSensitivity; }
+
     // Face detection
     void setFaceDetectionEnabled(bool enabled) { faceDetectionEnabled = enabled; }
     bool isFaceDetectionEnabled() const { return faceDetectionEnabled; }
@@ -54,6 +60,8 @@ private:
     bool motionDetectionEnabled = false;
     int motionSensitivity = 50;
     bool motionVectorsEnabled = false;
+    bool motionGraphEnabled = false;
+    int  motionGraphSensitivity = 15; // mean abs-diff that saturates the chart
     bool faceDetectionEnabled = false;
     
     QImage applyBrightnessContrast(const QImage &image, int brightness, int contrast);

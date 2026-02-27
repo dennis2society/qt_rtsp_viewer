@@ -1,5 +1,7 @@
 #pragma once
 #include <QImage>
+#include <QElapsedTimer>
+#include <deque>
 #include <opencv2/opencv.hpp>
 
 class OpenCVQtProcessor
@@ -11,9 +13,28 @@ public:
     QImage matToQImage(const cv::Mat &mat);
     QImage applyGaussBlur(const QImage &img, int kernelSize = 10, double sigma = 1.5);
     QImage applyBilateralFilter(const QImage &img, int diameter, double sigmaColor, double sigmaSpace);
-    QImage applyMotionDetectionOverlay(const QImage &currentFrame, const QImage &previousFrame, int sensitivity);
-    QImage applyMotionVectorsOverlay(const QImage &currentFrame, const QImage &previousFrame);
-    QImage applyFaceDetection(const QImage &img);
+    // Each overlay function takes:
+    //   drawTarget  – the frame to draw decorations onto  (accumulating composite)
+    //   clean*      – undecorated frame(s) used only for computation
+    // This ensures no overlay's decorations are ever seen as motion by another.
+    QImage applyMotionDetectionOverlay(const QImage &drawTarget,
+                                       const QImage &cleanCurrent,
+                                       const QImage &cleanPrevious,
+                                       int sensitivity);
+    QImage applyMotionVectorsOverlay(const QImage &drawTarget,
+                                     const QImage &cleanCurrent,
+                                     const QImage &cleanPrevious);
+    QImage applyFaceDetection(const QImage &drawTarget, const QImage &cleanSource);
+
+    // Returns fraction [0.0, 1.0] of motion between clean frames
+    double computeMotionLevel(const QImage &cleanCurrent,
+                              const QImage &cleanPrevious,
+                              int sensitivity);
+    // Draws a sliding-window motion bar chart onto drawTarget
+    QImage applyMotionGraphOverlay(const QImage &drawTarget, double motionLevel);
+
+    // Reset motion logging (clears log file and restarts timer)
+    void resetMotionLog();
 
 private:
     // Reusable buffers to reduce memory allocation overhead
@@ -26,4 +47,13 @@ private:
 
     cv::CascadeClassifier faceCascade; // Haar cascade for face detection
     bool faceCascadeLoaded = false;
+
+    // Motion graph history (sliding window)
+    static constexpr int kMotionHistorySize = 120;
+    std::deque<double> motionHistory;
+    double smoothedMotionLevel = 0.0; // Exponentially smoothed motion level
+
+    // Motion logging timer
+    QElapsedTimer motionLogTimer;
+    bool motionLogStarted = false;
 };

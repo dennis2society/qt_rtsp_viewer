@@ -36,6 +36,8 @@ private slots:
     void onResetEffects();
     void onMotionDetectionChanged();
     void onMotionVectorsChanged();
+    void onMotionGraphChanged();
+    void onMotionGraphSensitivityChanged(int value);
     void onFaceDetectionChanged();
     void onOverlayToggled(bool checked);
 
@@ -59,6 +61,11 @@ private:
 
     // Motion vectors UI control
     QCheckBox *motionVectorsCheckBox;
+
+    // Motion graph UI controls
+    QCheckBox *motionGraphCheckBox;
+    QSlider   *motionGraphSensitivitySlider;
+    QLabel    *motionGraphSensitivityLabel;
 
     // Face detection UI control
     QCheckBox *faceDetectionCheckBox;

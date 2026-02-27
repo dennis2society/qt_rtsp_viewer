@@ -1,4 +1,11 @@
 #include "opencvqtprocessor.hpp"
+#include <QPainter>
+#include <QFont>
+#include <QFontMetrics>
+#include <QFile>
+#include <QTextStream>
+#include <QDateTime>
+#include <QElapsedTimer>
 #include <iostream>
 
 const cv::String haarCascadePath = "opencv/haarcascade_frontalface_default.xml";
@@ -84,22 +91,22 @@ QImage OpenCVQtProcessor::applyBilateralFilter(const QImage &img, int diameter, 
     return resultImage;
 }
 
-QImage OpenCVQtProcessor::applyMotionDetectionOverlay(const QImage &currentFrame, const QImage &previousFrame, int sensitivity)
+QImage OpenCVQtProcessor::applyMotionDetectionOverlay(const QImage &drawTarget,
+                                                       const QImage &cleanCurrent,
+                                                       const QImage &cleanPrevious,
+                                                       int sensitivity)
 {
-    if (currentFrame.isNull() || previousFrame.isNull())
-        return {};
+    if (cleanCurrent.isNull() || cleanPrevious.isNull() || drawTarget.isNull())
+        return drawTarget;
 
-    cv::Mat currentMat = qImageToMat(currentFrame);
-    cv::Mat previousMat = qImageToMat(previousFrame);
-
+    // Computation on clean frames only
+    cv::Mat currentMat  = qImageToMat(cleanCurrent);
+    cv::Mat previousMat = qImageToMat(cleanPrevious);
     if (currentMat.empty() || previousMat.empty())
-        return {};
+        return drawTarget;
 
-    // Reuse workMat1 and workMat2 for grayscale conversions
-    cv::cvtColor(currentMat, workMat1, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(currentMat,  workMat1, cv::COLOR_BGR2GRAY);
     cv::cvtColor(previousMat, workMat2, cv::COLOR_BGR2GRAY);
-
-    // Reuse workMat3 for diff and threshold operations
     cv::absdiff(workMat1, workMat2, workMat3);
 
     cv::Mat thresh;
@@ -108,135 +115,263 @@ QImage OpenCVQtProcessor::applyMotionDetectionOverlay(const QImage &currentFrame
     std::vector<std::vector<cv::Point>> contours;
     cv::findContours(thresh, contours, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
 
-    // Draw on a copy of currentMat
-    cv::Mat resultMat = currentMat.clone();
+    // Draw onto a copy of drawTarget (not cleanCurrent)
+    cv::Mat canvas = qImageToMat(drawTarget).clone();
     for (const auto &contour : contours) {
-        if (cv::contourArea(contour) > 500) { // Filter small contours
+        if (cv::contourArea(contour) > 500) {
             cv::Rect boundingBox = cv::boundingRect(contour);
-            cv::rectangle(resultMat, boundingBox, cv::Scalar(0, 0, 255), 2); // Red rectangle
+            cv::rectangle(canvas, boundingBox, cv::Scalar(0, 0, 255), 2);
         }
     }
 
-    // Store in member and return copy
-    resultImage = QImage(resultMat.data, resultMat.cols, resultMat.rows, resultMat.step,
+    resultImage = QImage(canvas.data, canvas.cols, canvas.rows, canvas.step,
                          QImage::Format_BGR888).copy();
     return resultImage;
 }
 
-QImage OpenCVQtProcessor::applyMotionVectorsOverlay(const QImage &currentFrame, const QImage &previousFrame)
+QImage OpenCVQtProcessor::applyMotionVectorsOverlay(const QImage &drawTarget,
+                                                     const QImage &cleanCurrent,
+                                                     const QImage &cleanPrevious)
 {
-    if (currentFrame.isNull() || previousFrame.isNull())
-        return currentFrame;
+    if (cleanCurrent.isNull() || cleanPrevious.isNull() || drawTarget.isNull())
+        return drawTarget;
 
-    cv::Mat currentMat = qImageToMat(currentFrame);
-    cv::Mat previousMat = qImageToMat(previousFrame);
-
+    // Computation on clean frames only
+    cv::Mat currentMat  = qImageToMat(cleanCurrent);
+    cv::Mat previousMat = qImageToMat(cleanPrevious);
     if (currentMat.empty() || previousMat.empty())
-        return currentFrame;
+        return drawTarget;
 
-    // Convert to grayscale for optical flow calculation, reusing workMat1 and workMat2
-    cv::cvtColor(currentMat, workMat1, cv::COLOR_BGR2GRAY);
+    cv::cvtColor(currentMat,  workMat1, cv::COLOR_BGR2GRAY);
     cv::cvtColor(previousMat, workMat2, cv::COLOR_BGR2GRAY);
 
-    // Downsample for faster computation (optical flow is expensive)
     float scale = 0.1f;
     cv::Mat grayCurrentSmall, grayPreviousSmall;
-    cv::resize(workMat1, grayCurrentSmall, cv::Size(), scale, scale, cv::INTER_LINEAR);
+    cv::resize(workMat1, grayCurrentSmall,  cv::Size(), scale, scale, cv::INTER_LINEAR);
     cv::resize(workMat2, grayPreviousSmall, cv::Size(), scale, scale, cv::INTER_LINEAR);
 
-    // Calculate optical flow using Farneback method with optimized parameters
     cv::Mat flow;
-    cv::calcOpticalFlowFarneback(grayPreviousSmall, grayCurrentSmall, flow, 0.5, 2, 9, 2, 5, 1.1, 0);
+    cv::calcOpticalFlowFarneback(grayPreviousSmall, grayCurrentSmall,
+                                 flow, 0.5, 2, 9, 2, 5, 1.1, 0);
 
-    // Draw motion vectors on the frame, reusing workMat3
-    workMat3 = currentMat.clone();
-    
-    // Grid spacing for vector visualization (on downsampled space, then scale to original)
-    int stepSize = 10;
-    float arrowScale = 1.5f; // Scale factor for arrow length visualization
-    
+    // Draw onto drawTarget (not cleanCurrent)
+    cv::Mat canvas = qImageToMat(drawTarget).clone();
+
+    int   stepSize  = 10;
+    float arrowScale = 1.5f;
     for (int y = 0; y < flow.rows; y += stepSize) {
         for (int x = 0; x < flow.cols; x += stepSize) {
-            cv::Point2f flowVec = flow.at<cv::Point2f>(y, x);
-            
-            // Calculate magnitude of motion vector
-            float magnitude = std::sqrt(flowVec.x * flowVec.x + flowVec.y * flowVec.y);
-            
-            // Only draw if motion is significant
+            cv::Point2f flowVec   = flow.at<cv::Point2f>(y, x);
+            float       magnitude = std::sqrt(flowVec.x * flowVec.x + flowVec.y * flowVec.y);
             if (magnitude > 0.2f) {
-                // Scale coordinates back to original image
                 int x_orig = static_cast<int>(x / scale);
                 int y_orig = static_cast<int>(y / scale);
-                
-                // Starting point
                 cv::Point p1(x_orig, y_orig);
-                // Ending point (scale flow vector back to original dimensions)
-                cv::Point p2(x_orig + static_cast<int>(flowVec.x * arrowScale / scale), 
-                            y_orig + static_cast<int>(flowVec.y * arrowScale / scale));
-                
-                // Color based on magnitude (from blue to red)
+                cv::Point p2(x_orig + static_cast<int>(flowVec.x * arrowScale / scale),
+                             y_orig + static_cast<int>(flowVec.y * arrowScale / scale));
                 float normalizedMag = std::min(magnitude * 5.0f, 1.0f);
-                uchar colorVal = static_cast<uchar>(normalizedMag * 255);
-                cv::Scalar arrowColor(255 - colorVal, 128, colorVal); // BGR format
-                
-                // Draw arrow (simplified line instead of arrowedLine for performance)
-                cv::line(workMat3, p1, p2, arrowColor, 2, cv::LINE_AA);
-                // Draw small circle at start point
-                cv::circle(workMat3, p1, 2, arrowColor, -1);
+                uchar colorVal      = static_cast<uchar>(normalizedMag * 255);
+                cv::Scalar arrowColor(255 - colorVal, 128, colorVal);
+                cv::line(canvas, p1, p2, arrowColor, 2, cv::LINE_AA);
+                cv::circle(canvas, p1, 2, arrowColor, -1);
             }
         }
     }
 
-    // Store in member and return copy
-    resultImage = QImage(workMat3.data, workMat3.cols, workMat3.rows, workMat3.step,
+    resultImage = QImage(canvas.data, canvas.cols, canvas.rows, canvas.step,
                          QImage::Format_BGR888).copy();
     return resultImage;
 }
 
-QImage OpenCVQtProcessor::applyFaceDetection(const QImage &img)
+QImage OpenCVQtProcessor::applyFaceDetection(const QImage &drawTarget,
+                                              const QImage &cleanSource)
 {
-    if (img.isNull())
-        return img;
+    if (cleanSource.isNull() || drawTarget.isNull())
+        return drawTarget;
 
-    // Lazy-load the Haar cascade on first use
-    if (!faceCascadeLoaded) {
+    if (!faceCascadeLoaded)
         faceCascadeLoaded = faceCascade.load(haarCascadePath);
-    }
     if (!faceCascadeLoaded || faceCascade.empty())
-        return img;
+        return drawTarget;
 
-    cv::Mat src = qImageToMat(img);
+    // Detection on clean source
+    cv::Mat src = qImageToMat(cleanSource);
     if (src.empty())
-        return img;
+        return drawTarget;
 
-    // Downsample for faster detection
     constexpr float scale = 0.5f;
     cv::Mat small;
     cv::resize(src, small, cv::Size(), scale, scale, cv::INTER_LINEAR);
-
     cv::Mat gray;
     cv::cvtColor(small, gray, cv::COLOR_BGR2GRAY);
     cv::equalizeHist(gray, gray);
 
     std::vector<cv::Rect> faces;
-    faceCascade.detectMultiScale(gray, faces,
-        /*scaleFactor=*/1.1,
-        /*minNeighbors=*/4,
-        /*flags=*/0,
-        /*minSize=*/cv::Size(30, 30));
+    faceCascade.detectMultiScale(gray, faces, 1.1, 4, 0, cv::Size(30, 30));
 
-    // Draw green bounding boxes scaled back to original resolution
-    cv::Mat result = src.clone();
+    // Draw onto drawTarget
+    cv::Mat canvas = qImageToMat(drawTarget).clone();
     for (const cv::Rect &r : faces) {
         cv::Rect orig(static_cast<int>(r.x / scale),
                       static_cast<int>(r.y / scale),
-                      static_cast<int>(r.width / scale),
+                      static_cast<int>(r.width  / scale),
                       static_cast<int>(r.height / scale));
-        cv::rectangle(result, orig, cv::Scalar(0, 255, 0), 2);
+        cv::rectangle(canvas, orig, cv::Scalar(0, 255, 0), 2);
     }
 
-    resultImage = QImage(result.data, result.cols, result.rows, result.step,
+    resultImage = QImage(canvas.data, canvas.cols, canvas.rows, canvas.step,
                          QImage::Format_BGR888).copy();
     return resultImage;
+}
+
+double OpenCVQtProcessor::computeMotionLevel(const QImage &currentFrame,
+                                              const QImage &previousFrame,
+                                              int /*sensitivity*/)
+{
+    if (currentFrame.isNull() || previousFrame.isNull())
+        return 0.0;
+
+    // Fully self-contained: convert locally without touching shared member buffers.
+    auto toGray = [](const QImage &img) -> cv::Mat {
+        QImage bgr = (img.format() == QImage::Format_BGR888)
+                         ? img
+                         : img.convertToFormat(QImage::Format_BGR888);
+        cv::Mat mat(bgr.height(), bgr.width(), CV_8UC3,
+                    const_cast<uchar *>(bgr.bits()),
+                    static_cast<size_t>(bgr.bytesPerLine()));
+        cv::Mat gray;
+        cv::cvtColor(mat, gray, cv::COLOR_BGR2GRAY);
+        return gray.clone(); // deep copy before bgr goes out of scope
+    };
+
+    cv::Mat grayA = toGray(currentFrame);
+    cv::Mat grayB = toGray(previousFrame);
+    if (grayA.empty() || grayB.empty())
+        return 0.0;
+
+    // Use mean absolute difference (range 0-255).
+    // A mean diff of ~20 (≈8 % intensity change) is mapped to 1.0 on the chart.
+    // This is far more sensitive than a threshold+pixel-count approach and
+    // works independently of the sensitivity slider.
+    cv::Mat diff;
+    cv::absdiff(grayA, grayB, diff);
+    double meanDiff = cv::mean(diff)[0]; // 0-255
+    constexpr double kMaxDiff = 20.0;    // mean diff that saturates the chart
+    return std::min(meanDiff / kMaxDiff, 1.0);
+}
+
+QImage OpenCVQtProcessor::applyMotionGraphOverlay(const QImage &img, double motionLevel)
+{
+    if (img.isNull())
+        return img;
+
+    // Apply exponential smoothing to filter out periodic spikes/artifacts
+    // Higher factor (closer to 1.0) = more smoothing; lower (closer to 0.5) = more responsive
+    constexpr double SMOOTHING_FACTOR = 0.85;
+    smoothedMotionLevel = SMOOTHING_FACTOR * smoothedMotionLevel + 
+                          (1.0 - SMOOTHING_FACTOR) * motionLevel;
+
+    // Start timer on first call
+    if (!motionLogStarted) {
+        motionLogTimer.start();
+        motionLogStarted = true;
+    }
+
+    // Log smoothed motion level to CSV with elapsed seconds
+    double deltaSeconds = motionLogTimer.elapsed() / 1000.0;
+    QString timeStr = QDateTime::currentDateTime().toString("yyyy-MM-dd HH:mm:ss");
+    QString motionPercent = QString::number(smoothedMotionLevel * 100, 'f', 2);
+
+    QFile csvFile("motion_log.csv");
+    bool fileIsNew = !csvFile.exists();
+
+    if (csvFile.open(QIODevice::Append | QIODevice::Text)) {
+        QTextStream out(&csvFile);
+        // Write header only if this is the first write
+        if (fileIsNew) {
+            out << "deltaSeconds,DateTime,MotionLevel%\n";
+        }
+        out << QString::number(deltaSeconds, 'f', 3) << "," << timeStr << "," << motionPercent << "\n";
+        csvFile.close();
+    }
+
+    // Update history with smoothed value
+    motionHistory.push_back(smoothedMotionLevel);
+    while (static_cast<int>(motionHistory.size()) > kMotionHistorySize)
+        motionHistory.pop_front();
+
+    QImage out = (img.format() == QImage::Format_ARGB32 ||
+                  img.format() == QImage::Format_ARGB32_Premultiplied)
+                     ? img
+                     : img.convertToFormat(QImage::Format_ARGB32);
+
+    // Layout
+    const int margin    = 16;
+    const int padX      = 10;
+    const int padY      = 8;
+    const int barWidth  = 2;  // pixels per sample
+    const int barAreaW  = kMotionHistorySize * barWidth;
+    const int barAreaH  = 120;
+    const int labelH    = 20;
+    const int boxW      = barAreaW + padX * 2;
+    const int boxH      = barAreaH + labelH + padY * 2;
+    const int boxX      = margin;
+    const int boxY      = out.height() - boxH - margin;
+
+    QPainter p(&out);
+    p.setRenderHint(QPainter::Antialiasing, false);
+
+    // Background
+    p.fillRect(boxX, boxY, boxW, boxH, QColor(0, 0, 0, 180));
+
+    // Title
+    QFont font;
+    font.setPointSize(9);
+    font.setBold(true);
+    p.setFont(font);
+    p.setPen(Qt::white);
+    p.drawText(boxX + padX, boxY + padY, barAreaW, labelH,
+               Qt::AlignLeft | Qt::AlignVCenter, "Motion Level");
+
+    // Draw grid line at 50 %
+    int gridY = boxY + padY + labelH + barAreaH / 2;
+    p.setPen(QColor(255, 255, 255, 60));
+    p.drawLine(boxX + padX, gridY, boxX + padX + barAreaW, gridY);
+
+    // Draw each bar
+    int numSamples = static_cast<int>(motionHistory.size());
+    int startX     = boxX + padX + (kMotionHistorySize - numSamples) * barWidth;
+    int barBaseY   = boxY + padY + labelH + barAreaH;
+
+    for (int i = 0; i < numSamples; ++i) {
+        double level = motionHistory[static_cast<size_t>(i)];
+        int barH = static_cast<int>(level * barAreaH);
+        // No artificial floor: show true zero as no bar
+        if (barH < 1)
+            continue;
+
+        // Color: green → yellow → red
+        QColor col;
+        if (level < 0.25)
+            col = QColor(50, 220, 50);
+        else if (level < 0.5)
+            col = QColor(220, 200, 30);
+        else
+            col = QColor(220, 50, 50);
+
+        p.fillRect(startX + i * barWidth, barBaseY - barH, barWidth, barH, col);
+    }
+
+    // Current-value readout (using smoothed level)
+    font.setPointSize(8);
+    font.setBold(false);
+    p.setFont(font);
+    p.setPen(Qt::white);
+    QString pct = QString("%1 %").arg(smoothedMotionLevel * 100, 0, 'f', 2);
+    p.drawText(boxX + padX + barAreaW - 36, boxY + padY,
+               36, labelH, Qt::AlignRight | Qt::AlignVCenter, pct);
+
+    p.end();
+    return out;
 }
 

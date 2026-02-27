@@ -112,11 +112,36 @@ void EffectsSidebar::setupUI()
     motionVectorsCheckBox = new QCheckBox("Motion Vectors", this);
     motionLayout->addWidget(motionVectorsCheckBox);
 
+    // Motion graph control
+    motionGraphCheckBox = new QCheckBox("Motion Graph", this);
+    motionGraphCheckBox->setToolTip(
+        "Draw a sliding-window bar chart showing the amount of motion per frame");
+    motionLayout->addWidget(motionGraphCheckBox);
+
+    // Motion graph sensitivity
+    auto *graphSensRow = new QHBoxLayout();
+    graphSensRow->addWidget(new QLabel("Graph Sensitivity", this));
+    motionGraphSensitivitySlider = new QSlider(Qt::Horizontal, this);
+    motionGraphSensitivitySlider->setRange(1, 100);
+    motionGraphSensitivitySlider->setValue(15);
+    motionGraphSensitivitySlider->setToolTip(
+        "Lower = chart fills with less motion (more amplified).\n"
+        "Higher = requires more motion to fill the chart.");
+    motionGraphSensitivityLabel = new QLabel("15", this);
+    motionGraphSensitivityLabel->setMaximumWidth(30);
+    graphSensRow->addWidget(motionGraphSensitivitySlider);
+    graphSensRow->addWidget(motionGraphSensitivityLabel);
+    motionLayout->addLayout(graphSensRow);
+
     motionGroup->setLayout(motionLayout);
     mainLayout->addWidget(motionGroup);
     connect(motionDetectionCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onMotionDetectionChanged);
     connect(motionSensitivitySlider, QOverload<int>::of(&QSlider::valueChanged), this, &EffectsSidebar::onMotionDetectionChanged);
     connect(motionVectorsCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onMotionVectorsChanged);
+    connect(motionGraphCheckBox,   &QCheckBox::toggled,
+            this, &EffectsSidebar::onMotionGraphChanged);
+    connect(motionGraphSensitivitySlider, QOverload<int>::of(&QSlider::valueChanged),
+            this, &EffectsSidebar::onMotionGraphSensitivityChanged);
 
     // Face detection control
     QGroupBox *faceGroup = new QGroupBox("Face Detection", this);
@@ -179,6 +204,9 @@ void EffectsSidebar::onResetEffects()
     motionSensitivitySlider->setValue(50);
     motionSensitivityLabel->setText("50");
     motionVectorsCheckBox->setChecked(false);
+    motionGraphCheckBox->setChecked(false);
+    motionGraphSensitivitySlider->setValue(15);
+    motionGraphSensitivityLabel->setText("15");
     overlayCheckBox->setChecked(true); // Reset to default (enabled)
     faceDetectionCheckBox->setChecked(false);
 }
@@ -199,6 +227,19 @@ void EffectsSidebar::onMotionDetectionChanged()
 void EffectsSidebar::onMotionVectorsChanged()
 {
     effects->setMotionVectorsEnabled(motionVectorsCheckBox->isChecked());
+    emit effectsChanged();
+}
+
+void EffectsSidebar::onMotionGraphChanged()
+{
+    effects->setMotionGraphEnabled(motionGraphCheckBox->isChecked());
+    emit effectsChanged();
+}
+
+void EffectsSidebar::onMotionGraphSensitivityChanged(int value)
+{
+    effects->setMotionGraphSensitivity(value);
+    motionGraphSensitivityLabel->setText(QString::number(value));
     emit effectsChanged();
 }
 

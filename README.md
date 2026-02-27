@@ -22,4 +22,5 @@ cmake --build build
 This should create the executable in ```./build/bin/```
 
 ## Transparency note
-This application was partially developed with AI assistance (Claude Haiku/Sonnet 4.5, ChatGPT 4.1).
+This application was developed with *heavy* AI assistance (Claude Haiku/Sonnet 4.5, ChatGPT 4.1)
+using github Copilot. I mostly wanted to test what the limits of that. I am a bit impressed.

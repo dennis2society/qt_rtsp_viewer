@@ -57,18 +57,36 @@ void VideoWorker::processFrame(const QVideoFrame &frame)
                 videoEffects->getBlurAmount() * 2 + 1,
                 videoEffects->getBlurAmount() * 0.5);
 
-        if (videoEffects->isMotionDetectionEnabled() && !previousFrame.isNull())
-            image = openCVProcessor.applyMotionDetectionOverlay(
-                image, previousFrame, videoEffects->getMotionSensitivity());
+        // Snapshot clean processed frame – this is the only source all
+        // detection/overlay functions are allowed to compute from.
+        const QImage cleanImage = image;
 
-        if (videoEffects->isMotionVectorsEnabled() && !previousFrame.isNull())
-            image = openCVProcessor.applyMotionVectorsOverlay(image, previousFrame);
+        // Start compositing: each overlay draws on top of the previous result
+        // but always computes from the clean pair (cleanImage / cleanPreviousFrame).
+        QImage result = cleanImage;
+
+        if (videoEffects->isMotionDetectionEnabled() && !cleanPreviousFrame.isNull())
+            result = openCVProcessor.applyMotionDetectionOverlay(
+                result, cleanImage, cleanPreviousFrame,
+                videoEffects->getMotionSensitivity());
+
+        if (videoEffects->isMotionVectorsEnabled() && !cleanPreviousFrame.isNull())
+            result = openCVProcessor.applyMotionVectorsOverlay(
+                result, cleanImage, cleanPreviousFrame);
 
         if (videoEffects->isFaceDetectionEnabled())
-            image = openCVProcessor.applyFaceDetection(image);
+            result = openCVProcessor.applyFaceDetection(result, cleanImage);
 
-        previousFrame = image.copy();
-        frozenFrame   = image;
+        if (videoEffects->isMotionGraphEnabled() && !cleanPreviousFrame.isNull()) {
+            double level = openCVProcessor.computeMotionLevel(
+                cleanImage, cleanPreviousFrame,
+                videoEffects->getMotionGraphSensitivity());
+            result = openCVProcessor.applyMotionGraphOverlay(result, level);
+        }
+
+        cleanPreviousFrame = cleanImage; // store clean frame for next iteration
+        frozenFrame = result;
+        image = result;
 
         paintFPSOverlay(image, QString("FPS: %1").arg(currentFps, 0, 'f', 1));
 #ifdef HAVE_FFMPEG

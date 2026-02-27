@@ -44,6 +44,7 @@ if(FFMPEG_FOUND)
     message(STATUS "FFmpeg found – recording support enabled")
 else()
     message(STATUS "FFmpeg not found – recording support disabled (install libavcodec-dev libavformat-dev libavutil-dev libswscale-dev to enable)")
+    message(WARNING "FFmpeg libraries not found. Recording functionality will be disabled.")
 endif()
 
 # Source files
