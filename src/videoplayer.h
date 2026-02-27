@@ -1,21 +1,17 @@
 #ifndef VIDEOPLAYER_H
 #define VIDEOPLAYER_H
 
-#include <QWidget>
-#include <QMediaPlayer>
-#include <QVideoWidget>
-#include <QLabel>
-#include <QVideoSink>
-#include <QVideoFrame>
 #include <QImage>
-#include <QPixmap>
-#include <QTimer>
-#include <QElapsedTimer>
+#include <QMediaPlayer>
 #include <QThread>
+#include <QVideoFrame>
+#include <QVideoSink>
+#include <QVideoWidget>
+#include <QWidget>
 
 #include "videoeffects.h"
-#include "opencvqtprocessor.hpp"
 
+class QLabel;
 class VideoWorker;
 
 
@@ -32,8 +28,8 @@ public:
     void pauseVideo();
     void resumeVideo();
     QMediaPlayer *getMediaPlayer() const { return mediaPlayer; }
-    void setVideoEffects(VideoEffects *effects) { videoEffects = effects; }
-    void setOverlayEnabled(bool enabled) { overlayEnabled = enabled; }
+    void setVideoEffects(VideoEffects *effects);
+    void setOverlayEnabled(bool enabled);
     bool isOverlayEnabled() const { return overlayEnabled; }
 
 signals:
@@ -43,33 +39,24 @@ signals:
     void streamStopped();
     void startPlayback(const QString &url);
     void stopPlayback();
+    void pauseStateChanged(bool paused);
 
 private slots:
     void onMediaError(QMediaPlayer::Error error, const QString &errorString);
     void onMediaStatusChanged(QMediaPlayer::MediaStatus status);
-    void updateFrame(const QVideoFrame &frame);
+    void displayFrame(const QImage &image);
 
 private:
     void setupUI();
-    void paintFPSOverlay(QImage &image, const QString &fpsText);
+    void startWorker();
 
     QMediaPlayer *mediaPlayer;
     QVideoWidget *videoWidget;
-    QLabel *statusLabel;
     QVideoSink *captureSink;
-    QVideoFrame lastFrame;
-    QTimer *frameUpdateTimer;
-    QElapsedTimer fpsTimer;
-    int frameCount;
-    double currentFps;
     VideoEffects *videoEffects;
     QThread *workerThread;
     VideoWorker *worker;
-    bool paused = false;
-    QImage frozenFrame;
-    QImage previousFrame;
     bool overlayEnabled = true;
-    OpenCVQtProcessor openCVProcessor;  // Instance for processing video frames
 
 };
 
