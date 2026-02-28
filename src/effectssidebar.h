@@ -5,6 +5,7 @@
 #include <QCheckBox>
 #include <QLabel>
 #include <QPushButton>
+#include <QSettings>
 #include <QSlider>
 #include <QWidget>
 
@@ -13,7 +14,7 @@ class EffectsSidebar : public QWidget
     Q_OBJECT
 
 public:
-    EffectsSidebar(VideoEffects *effects, QWidget *parent = nullptr);
+    EffectsSidebar(VideoEffects *effects, QSettings *settings = nullptr, QWidget *parent = nullptr);
     ~EffectsSidebar();
 
     VideoEffects *getEffects() const
@@ -26,6 +27,9 @@ public:
     bool isOverlayEnabled() const;
     
     void setAutoRecordDir(const QString &dir);
+    
+    void loadEffectsSettings();
+    void saveEffectsSettings();
 
 signals:
     void effectsChanged();
@@ -55,6 +59,7 @@ private:
     void setupUI();
 
     VideoEffects *effects;
+    QSettings *settings;
 
     QSlider *blurSlider;
     QLabel *blurValueLabel;

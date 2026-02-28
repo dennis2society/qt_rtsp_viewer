@@ -6,13 +6,17 @@
 #include <QScrollArea>
 #include <QVBoxLayout>
 
-EffectsSidebar::EffectsSidebar(VideoEffects *effects, QWidget *parent)
+EffectsSidebar::EffectsSidebar(VideoEffects *effects, QSettings *settings, QWidget *parent)
     : QWidget(parent)
     , effects(effects)
+    , settings(settings)
 {
     setMaximumWidth(250);
     setMinimumWidth(200);
     setupUI();
+    if (settings) {
+        loadEffectsSettings();
+    }
 }
 
 EffectsSidebar::~EffectsSidebar()
@@ -368,4 +372,99 @@ void EffectsSidebar::onAutoRecordTimeoutChanged(int value)
     effects->setAutoRecordTimeout(value);
     autoRecordTimeoutLabel->setText(QString::number(value));
     emit autoRecordTimeoutChanged(value);
+}
+void EffectsSidebar::loadEffectsSettings()
+{
+    if (!settings) return;
+
+    settings->beginGroup("Effects");
+    
+    // Blur
+    blurSlider->setValue(settings->value("Blur", 0).toInt());
+    
+    // Grayscale
+    grayscaleCheckBox->setChecked(settings->value("Grayscale", false).toBool());
+    
+    // Brightness
+    brightnessSlider->setValue(settings->value("Brightness", 0).toInt());
+    
+    // Color Temperature
+    colorTemperatureSlider->setValue(settings->value("ColorTemperature", 0).toInt());
+    
+    // Contrast
+    contrastSlider->setValue(settings->value("Contrast", 0).toInt());
+    
+    // Motion Detection
+    motionDetectionCheckBox->setChecked(settings->value("MotionDetectionEnabled", false).toBool());
+    motionSensitivitySlider->setValue(settings->value("MotionSensitivity", 50).toInt());
+    
+    // Motion Vectors
+    motionVectorsCheckBox->setChecked(settings->value("MotionVectorsEnabled", false).toBool());
+    
+    // Motion Graph
+    motionGraphCheckBox->setChecked(settings->value("MotionGraphEnabled", false).toBool());
+    motionGraphSensitivitySlider->setValue(settings->value("MotionGraphSensitivity", 15).toInt());
+    
+    // Face Detection
+    faceDetectionCheckBox->setChecked(settings->value("FaceDetectionEnabled", false).toBool());
+    
+    // Auto-Record on Motion
+    autoRecordCheckBox->setChecked(settings->value("AutoRecordEnabled", false).toBool());
+    autoRecordTimeoutSlider->setValue(settings->value("AutoRecordTimeout", 5).toInt());
+    QString autoRecordDir = settings->value("AutoRecordDir", "").toString();
+    if (!autoRecordDir.isEmpty()) {
+        setAutoRecordDir(autoRecordDir);
+    }
+    
+    // Overlay
+    overlayCheckBox->setChecked(settings->value("OverlayEnabled", true).toBool());
+    
+    settings->endGroup();
+}
+
+void EffectsSidebar::saveEffectsSettings()
+{
+    if (!settings) return;
+
+    settings->beginGroup("Effects");
+    
+    // Blur
+    settings->setValue("Blur", blurSlider->value());
+    
+    // Grayscale
+    settings->setValue("Grayscale", grayscaleCheckBox->isChecked());
+    
+    // Brightness
+    settings->setValue("Brightness", brightnessSlider->value());
+    
+    // Color Temperature
+    settings->setValue("ColorTemperature", colorTemperatureSlider->value());
+    
+    // Contrast
+    settings->setValue("Contrast", contrastSlider->value());
+    
+    // Motion Detection
+    settings->setValue("MotionDetectionEnabled", motionDetectionCheckBox->isChecked());
+    settings->setValue("MotionSensitivity", motionSensitivitySlider->value());
+    
+    // Motion Vectors
+    settings->setValue("MotionVectorsEnabled", motionVectorsCheckBox->isChecked());
+    
+    // Motion Graph
+    settings->setValue("MotionGraphEnabled", motionGraphCheckBox->isChecked());
+    settings->setValue("MotionGraphSensitivity", motionGraphSensitivitySlider->value());
+    
+    // Face Detection
+    settings->setValue("FaceDetectionEnabled", faceDetectionCheckBox->isChecked());
+    
+    // Auto-Record on Motion
+    settings->setValue("AutoRecordEnabled", autoRecordCheckBox->isChecked());
+    settings->setValue("AutoRecordTimeout", autoRecordTimeoutSlider->value());
+    settings->setValue("AutoRecordDir", effects->getAutoRecordDir());
+    
+    // Overlay
+    settings->setValue("OverlayEnabled", overlayCheckBox->isChecked());
+    
+    settings->endGroup();
+    settings->sync();
 }

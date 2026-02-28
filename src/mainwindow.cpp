@@ -142,16 +142,24 @@ MainWindow::MainWindow(QWidget *parent)
     loadUrlHistory();
     // loadSavedPassword() removed
     
-    // Load overlay setting
+    // Load overlay and auto-record settings (now stored in Effects group by EffectsSidebar)
+    // Create a temporary QSettings to check for old settings at root level for migration
     bool overlayEnabled = settings->value("OverlayEnabled", true).toBool();
     videoPlayer->setOverlayEnabled(overlayEnabled);
-    effectsSidebar->setOverlayEnabled(overlayEnabled);
     
-    // Load auto-record directory for motion recordings
     QString autoRecDir = settings->value("AutoRecordDir", "").toString();
     if (!autoRecDir.isEmpty()) {
         effectsSidebar->setAutoRecordDir(autoRecDir);
         autoRecordDir = autoRecDir;
+    } else {
+        // Try to load from Effects group if it exists
+        settings->beginGroup("Effects");
+        autoRecDir = settings->value("AutoRecordDir", "").toString();
+        settings->endGroup();
+        if (!autoRecDir.isEmpty()) {
+            effectsSidebar->setAutoRecordDir(autoRecDir);
+            autoRecordDir = autoRecDir;
+        }
     }
     
     connectSignals();
@@ -160,6 +168,9 @@ MainWindow::MainWindow(QWidget *parent)
 
 MainWindow::~MainWindow()
 {
+    if (effectsSidebar) {
+        effectsSidebar->saveEffectsSettings();
+    }
 }
 
 void MainWindow::setupUI()
@@ -236,7 +247,7 @@ void MainWindow::setupUI()
 
     // Initialize video effects and effects sidebar
     videoEffects = new VideoEffects(this);
-    effectsSidebar = new EffectsSidebar(videoEffects, this);
+    effectsSidebar = new EffectsSidebar(videoEffects, settings, this);
     
     // Wrap sidebar in a QScrollArea for scrolling if it exceeds available height
     QScrollArea *scrollArea = new QScrollArea(this);
@@ -263,8 +274,7 @@ void MainWindow::connectSignals()
     connect(urlInput->lineEdit(), &QLineEdit::textChanged, this, &MainWindow::onUrlChanged);
     connect(effectsSidebar, &EffectsSidebar::overlayToggled, videoPlayer, &VideoPlayer::setOverlayEnabled);
     connect(effectsSidebar, &EffectsSidebar::overlayToggled, this, [this](bool enabled) {
-        settings->setValue("OverlayEnabled", enabled);
-        settings->sync();
+        effectsSidebar->saveEffectsSettings();
     });
     connect(recordButton,  &QPushButton::toggled,
             this,          &MainWindow::onRecordButtonToggled);
@@ -279,8 +289,7 @@ void MainWindow::connectSignals()
             videoPlayer,    &VideoPlayer::setAutoRecordDir);
     connect(effectsSidebar, &EffectsSidebar::autoRecordDirChanged, this, [this](const QString &dir) {
         autoRecordDir = dir;
-        settings->setValue("AutoRecordDir", dir);
-        settings->sync();
+        effectsSidebar->saveEffectsSettings();
     });
     connect(effectsSidebar, &EffectsSidebar::autoRecordTimeoutChanged,
             videoPlayer,    &VideoPlayer::setAutoRecordTimeout);
@@ -431,6 +440,7 @@ void MainWindow::addUrlToHistory(const QString &url)
 
     // Save to persistent storage
     saveUrlHistory();
+    effectsSidebar->saveEffectsSettings();
 }
 
 void MainWindow::autoplayLastStream()
@@ -522,6 +532,7 @@ void MainWindow::onRemoveUrlClicked()
 
     // Save updated history
     saveUrlHistory();
+    effectsSidebar->saveEffectsSettings();
 
     QMessageBox::information(this, "Removed", "URL removed from history.");
 }
