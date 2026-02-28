@@ -37,6 +37,7 @@ public slots:
     void processFrame(const QVideoFrame &frame);
     void setPaused(bool p);
     void setOverlayEnabled(bool enabled);
+    void setCameraName(const QString &name);
     void startRecording(const QString &path, const QString &codec, double fps);
     void stopRecording();
     void setAutoRecordEnabled(bool enabled);
@@ -81,6 +82,7 @@ private:
     QString             recCodec       = "libx264";
     double              recFps         = 25.0;
     int64_t             recFrameIndex  = 0;
+    QString             cameraName     = "cam_01";
 
     // Auto-record on motion
     bool                autoRecordEnabled  = false;

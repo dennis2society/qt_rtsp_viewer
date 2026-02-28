@@ -163,6 +163,7 @@ MainWindow::MainWindow(QWidget *parent)
     }
     
     connectSignals();
+    updateCurrentCameraName();
     autoplayLastStream();
 }
 
@@ -202,6 +203,10 @@ void MainWindow::setupUI()
     removeButton = new QPushButton("Remove", this);
     removeButton->setMaximumWidth(80);
     removeButton->setToolTip("Remove the selected URL from history.");
+    cameraNameEdit = new QLineEdit(this);
+    cameraNameEdit->setPlaceholderText("Camera name");
+    cameraNameEdit->setMaximumWidth(120);
+    cameraNameEdit->setToolTip("Edit the camera name for the current URL.");
     playButton = new QPushButton(this);
     playButton->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
     playButton->setToolTip("Play");
@@ -221,6 +226,7 @@ void MainWindow::setupUI()
     inputLayout->addWidget(urlLabel);
     inputLayout->addWidget(urlInput);
     inputLayout->addWidget(removeButton);
+    inputLayout->addWidget(cameraNameEdit);
     QFrame *separator = new QFrame(this);
     separator->setFrameShape(QFrame::VLine);
     separator->setFrameShadow(QFrame::Sunken);
@@ -269,6 +275,7 @@ void MainWindow::connectSignals()
     connect(stopButton, &QPushButton::clicked, this, &MainWindow::onStopButtonClicked);
     connect(pauseButton, &QPushButton::toggled, this, &MainWindow::onPauseButtonToggled);
     connect(removeButton, &QPushButton::clicked, this, &MainWindow::onRemoveUrlClicked);
+    connect(cameraNameEdit, &QLineEdit::textChanged, this, &MainWindow::onCameraNameEdited);
     connect(videoPlayer, &VideoPlayer::errorOccurred, this, &MainWindow::onPlayerError);
     connect(videoPlayer, &VideoPlayer::statusChanged, this, &MainWindow::onPlayerStatusChanged);
     connect(urlInput->lineEdit(), &QLineEdit::textChanged, this, &MainWindow::onUrlChanged);
@@ -390,6 +397,7 @@ void MainWindow::onUrlChanged(const QString &url)
 {
     // This slot can be used to validate URLs or show additional info
     playButton->setEnabled(!url.isEmpty());
+    updateCurrentCameraName();
 }
 
 void MainWindow::loadUrlHistory()
@@ -399,8 +407,14 @@ void MainWindow::loadUrlHistory()
     for (int i = 0; i < size; ++i) {
         settings->setArrayIndex(i);
         QString url = settings->value("url", "").toString();
+        QString cameraName = settings->value("cameraName", "").toString();
         if (!url.isEmpty()) {
             urlInput->addItem(url);
+            // If no camera name was saved, generate one
+            if (cameraName.isEmpty()) {
+                cameraName = generateCameraName(i);
+            }
+            cameraNames[url] = cameraName;
         }
     }
     settings->endArray();
@@ -413,7 +427,9 @@ void MainWindow::saveUrlHistory()
     settings->beginWriteArray("urls");
     for (int i = 0; i < urlInput->count(); ++i) {
         settings->setArrayIndex(i);
-        settings->setValue("url", urlInput->itemText(i));
+        QString url = urlInput->itemText(i);
+        settings->setValue("url", url);
+        settings->setValue("cameraName", cameraNames.value(url, generateCameraName(i)));
     }
     settings->endArray();
     settings->endGroup();
@@ -427,6 +443,11 @@ void MainWindow::addUrlToHistory(const QString &url)
     if (index >= 0) {
         // Move existing URL to top
         urlInput->removeItem(index);
+    } else {
+        // New URL – auto-generate a camera name if not already present
+        if (!cameraNames.contains(url)) {
+            cameraNames[url] = generateCameraName(0);
+        }
     }
 
     // Add URL at the beginning
@@ -435,12 +456,15 @@ void MainWindow::addUrlToHistory(const QString &url)
 
     // Keep only the last 20 URLs
     while (urlInput->count() > 20) {
+        QString removedUrl = urlInput->itemText(urlInput->count() - 1);
         urlInput->removeItem(urlInput->count() - 1);
+        cameraNames.remove(removedUrl);
     }
 
     // Save to persistent storage
     saveUrlHistory();
     effectsSidebar->saveEffectsSettings();
+    updateCurrentCameraName();
 }
 
 void MainWindow::autoplayLastStream()
@@ -458,9 +482,9 @@ void MainWindow::onRecordButtonToggled(bool checked)
 {
     if (checked) {
         if (!autoRecordDir.isEmpty()) {
-            // Use the same folder and filename pattern as auto-recording
+            // Use the same folder and filename pattern as auto-recording, with camera name
             const QString ts       = QDateTime::currentDateTime().toString("yyyy-MM-dd_HH-mm-ss");
-            const QString filename = ts + "_recording.mp4";
+            const QString filename = ts + "_" + currentCameraName + "_recording.mp4";
             const QString path     = autoRecordDir + "/" + filename;
             recordButton->setText("\u23f9 Stop Rec");
             recordButton->setStyleSheet("color: red; font-weight: bold;");
@@ -535,6 +559,50 @@ void MainWindow::onRemoveUrlClicked()
     effectsSidebar->saveEffectsSettings();
 
     QMessageBox::information(this, "Removed", "URL removed from history.");
+}
+
+QString MainWindow::generateCameraName(int index) const
+{
+    return QString("cam_%1").arg(index + 1, 2, 10, QChar('0'));
+}
+
+QString MainWindow::getCameraNameForUrl(const QString &url) const
+{
+    return cameraNames.value(url, "cam_01");
+}
+
+void MainWindow::setCameraNameForUrl(const QString &url, const QString &cameraName)
+{
+    if (!cameraName.isEmpty()) {
+        cameraNames[url] = cameraName;
+        saveUrlHistory();
+    }
+}
+
+void MainWindow::updateCurrentCameraName()
+{
+    QString currentUrl = urlInput->currentText();
+    currentCameraName = getCameraNameForUrl(currentUrl);
+    cameraNameEdit->blockSignals(true);
+    cameraNameEdit->setText(currentCameraName);
+    cameraNameEdit->blockSignals(false);
+    if (videoPlayer) {
+        videoPlayer->setCameraName(currentCameraName);
+    }
+}
+
+void MainWindow::onCameraNameEdited(const QString &newName)
+{
+    QString currentUrl = urlInput->currentText();
+    if (currentUrl.isEmpty() || newName.isEmpty()) {
+        return;
+    }
+
+    setCameraNameForUrl(currentUrl, newName);
+    currentCameraName = newName;
+    if (videoPlayer) {
+        videoPlayer->setCameraName(currentCameraName);
+    }
 }
 
 

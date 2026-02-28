@@ -108,8 +108,8 @@ void VideoWorker::processFrame(const QVideoFrame &frame)
             if (!autoRecording && !recording && motionLevel >= kAutoRecTrigger) {
                 // Start a new motion-triggered recording
                 autoRecStartTime = QDateTime::currentDateTime();
-                QString filename  = autoRecStartTime.toString("yyyy-MM-dd_HH-mm-ss")
-                                    + "_motion_recording.mp4";
+                QString timestamp = autoRecStartTime.toString("yyyy-MM-dd_HH-mm-ss");
+                QString filename  = timestamp + "_" + cameraName + "_motion_recording.mp4";
                 startRecording(autoRecordDir + "/" + filename, "libx265", 25.0);
                 autoRecording = true;
                 emit autoRecordingStarted();
@@ -157,6 +157,11 @@ void VideoWorker::setPaused(bool p)
 void VideoWorker::setOverlayEnabled(bool enabled)
 {
     overlayEnabled = enabled;
+}
+
+void VideoWorker::setCameraName(const QString &name)
+{
+    cameraName = name;
 }
 
 void VideoWorker::setAutoRecordEnabled(bool enabled)

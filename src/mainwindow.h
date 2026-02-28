@@ -11,6 +11,7 @@
 #include <QMainWindow>
 #include <QPushButton>
 #include <QSettings>
+#include <QMap>
 
 class MainWindow : public QMainWindow
 {
@@ -32,6 +33,7 @@ private slots:
     void onRecordButtonToggled(bool checked);
     void onRecordingFinished(const QString &path);
     void onRecordingError(const QString &message);
+    void onCameraNameEdited(const QString &newName);
 
 private:
     void setupUI();
@@ -40,9 +42,14 @@ private:
     void saveUrlHistory();
     void addUrlToHistory(const QString &url);
     void autoplayLastStream();
+    QString generateCameraName(int index) const;
+    QString getCameraNameForUrl(const QString &url) const;
+    void setCameraNameForUrl(const QString &url, const QString &cameraName);
+    void updateCurrentCameraName();
 
     QLabel *titleLabel;
     QComboBox *urlInput;
+    QLineEdit *cameraNameEdit;
     QPushButton *playButton;
     QPushButton *stopButton;
     QPushButton *pauseButton;
@@ -53,6 +60,8 @@ private:
     EffectsSidebar *effectsSidebar;
     QSettings *settings;
     QString autoRecordDir;   // mirrors the sidebar auto-record output directory
+    QMap<QString, QString> cameraNames;  // maps URL to camera name
+    QString currentCameraName;  // current camera name for active URL
 };
 
 #endif // MAINWINDOW_H

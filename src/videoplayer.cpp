@@ -110,6 +110,14 @@ void VideoPlayer::setOverlayEnabled(bool enabled)
                                   Qt::QueuedConnection, Q_ARG(bool, enabled));
 }
 
+void VideoPlayer::setCameraName(const QString &name)
+{
+    cameraName = name;
+    if (worker)
+        QMetaObject::invokeMethod(worker, "setCameraName",
+                                  Qt::QueuedConnection, Q_ARG(QString, name));
+}
+
 void VideoPlayer::playStream(const QString &url)
 {
     if (url.isEmpty()) {

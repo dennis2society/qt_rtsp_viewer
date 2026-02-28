@@ -31,6 +31,8 @@ public:
     void setVideoEffects(VideoEffects *effects);
     void setOverlayEnabled(bool enabled);
     bool isOverlayEnabled() const { return overlayEnabled; }
+    void setCameraName(const QString &name);
+    QString getCameraName() const { return cameraName; }
     void startRecording(const QString &path, const QString &codec, double fps);
     void stopRecording();
     void setAutoRecordEnabled(bool enabled);
@@ -68,6 +70,7 @@ private:
     QThread *workerThread;
     VideoWorker *worker;
     bool overlayEnabled = true;
+    QString cameraName = "cam_01";
 
 };
 
