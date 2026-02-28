@@ -42,6 +42,7 @@ public slots:
     void setAutoRecordEnabled(bool enabled);
     void setAutoRecordDir(const QString &dir);
     void setAutoRecordTimeout(int seconds);
+    void setStreamActive(bool active);
 
 signals:
     void frameReady(const QImage &image);
@@ -89,6 +90,7 @@ private:
     // Timeout: keep recording for N seconds after the last motion peak
     int                 autoRecTimeoutMs   = 5000;
     qint64              lastMotionAboveMs  = 0;
+    bool                streamActive       = false;
     static constexpr double kAutoRecTrigger = 0.50; // 50% of graph scale
 #ifdef HAVE_FFMPEG
     AVFormatContext    *fmtCtx         = nullptr;

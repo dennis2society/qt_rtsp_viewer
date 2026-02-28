@@ -52,6 +52,7 @@ private:
     VideoEffects *videoEffects;
     EffectsSidebar *effectsSidebar;
     QSettings *settings;
+    QString autoRecordDir;   // mirrors the sidebar auto-record output directory
 };
 
 #endif // MAINWINDOW_H

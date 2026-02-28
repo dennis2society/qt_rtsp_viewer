@@ -335,6 +335,14 @@ bool EffectsSidebar::isOverlayEnabled() const
     return overlayCheckBox->isChecked();
 }
 
+void EffectsSidebar::setAutoRecordDir(const QString &dir)
+{
+    if (!dir.isEmpty()) {
+        effects->setAutoRecordDir(dir);
+        autoRecordDirLabel->setText(dir);
+    }
+}
+
 void EffectsSidebar::onAutoRecordToggled(bool checked)
 {
     effects->setAutoRecordEnabled(checked);

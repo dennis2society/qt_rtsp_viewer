@@ -1,4 +1,5 @@
 #include "mainwindow.h"
+#include <QDateTime>
 #include <QDialog>
 #include <QDialogButtonBox>
 #include <QDir>
@@ -146,6 +147,13 @@ MainWindow::MainWindow(QWidget *parent)
     videoPlayer->setOverlayEnabled(overlayEnabled);
     effectsSidebar->setOverlayEnabled(overlayEnabled);
     
+    // Load auto-record directory for motion recordings
+    QString autoRecDir = settings->value("AutoRecordDir", "").toString();
+    if (!autoRecDir.isEmpty()) {
+        effectsSidebar->setAutoRecordDir(autoRecDir);
+        autoRecordDir = autoRecDir;
+    }
+    
     connectSignals();
     autoplayLastStream();
 }
@@ -269,13 +277,24 @@ void MainWindow::connectSignals()
             videoPlayer,    &VideoPlayer::setAutoRecordEnabled);
     connect(effectsSidebar, &EffectsSidebar::autoRecordDirChanged,
             videoPlayer,    &VideoPlayer::setAutoRecordDir);
+    connect(effectsSidebar, &EffectsSidebar::autoRecordDirChanged, this, [this](const QString &dir) {
+        autoRecordDir = dir;
+        settings->setValue("AutoRecordDir", dir);
+        settings->sync();
+    });
     connect(effectsSidebar, &EffectsSidebar::autoRecordTimeoutChanged,
             videoPlayer,    &VideoPlayer::setAutoRecordTimeout);
     connect(videoPlayer, &VideoPlayer::autoRecordingStarted, this, [this]() {
-        statusBar()->showMessage("⏺ Auto-recording started (motion detected)", 3000);
+        // Show record button as active while an auto-recording file is being written
+        recordButton->blockSignals(true);
+        recordButton->setChecked(true);
+        recordButton->blockSignals(false);
+        recordButton->setText("\u23fa Auto-Rec");
+        recordButton->setStyleSheet("color: red; font-weight: bold;");
+        statusBar()->showMessage("\u23fa Auto-recording started (motion detected)", 3000);
     });
     connect(videoPlayer, &VideoPlayer::autoRecordingStopped, this, [this](const QString &path) {
-        statusBar()->showMessage("⏹ Auto-recording saved: " + path, 5000);
+        statusBar()->showMessage("\u23f9 Auto-recording saved: " + path, 5000);
     });
     // Auto-stop recording when the stream stops for any reason
     connect(videoPlayer, &VideoPlayer::streamStopped, this, [this]() {
@@ -428,17 +447,27 @@ void MainWindow::autoplayLastStream()
 void MainWindow::onRecordButtonToggled(bool checked)
 {
     if (checked) {
-        RecordDialog dlg(this);
-        if (dlg.exec() != QDialog::Accepted) {
-            // User cancelled – revert button without re-triggering the slot
-            recordButton->blockSignals(true);
-            recordButton->setChecked(false);
-            recordButton->blockSignals(false);
-            return;
+        if (!autoRecordDir.isEmpty()) {
+            // Use the same folder and filename pattern as auto-recording
+            const QString ts       = QDateTime::currentDateTime().toString("yyyy-MM-dd_HH-mm-ss");
+            const QString filename = ts + "_recording.mp4";
+            const QString path     = autoRecordDir + "/" + filename;
+            recordButton->setText("\u23f9 Stop Rec");
+            recordButton->setStyleSheet("color: red; font-weight: bold;");
+            videoPlayer->startRecording(path, "libx265", 25.0);
+        } else {
+            RecordDialog dlg(this);
+            if (dlg.exec() != QDialog::Accepted) {
+                // User cancelled – revert button without re-triggering the slot
+                recordButton->blockSignals(true);
+                recordButton->setChecked(false);
+                recordButton->blockSignals(false);
+                return;
+            }
+            recordButton->setText("\u23f9 Stop Rec");
+            recordButton->setStyleSheet("color: red; font-weight: bold;");
+            videoPlayer->startRecording(dlg.filePath(), dlg.codec(), dlg.fps());
         }
-        recordButton->setText("\u23f9 Stop Rec");
-        recordButton->setStyleSheet("color: red; font-weight: bold;");
-        videoPlayer->startRecording(dlg.filePath(), dlg.codec(), dlg.fps());
     } else {
         videoPlayer->stopRecording();
     }
@@ -446,13 +475,19 @@ void MainWindow::onRecordButtonToggled(bool checked)
 
 void MainWindow::onRecordingFinished(const QString &path)
 {
+    // Auto-recordings: reset button visual to idle (feature stays enabled via its checkbox)
+    // Manual recordings: uncheck the button fully
     recordButton->blockSignals(true);
     recordButton->setChecked(false);
     recordButton->blockSignals(false);
     recordButton->setText("\u23fa Record");
     recordButton->setStyleSheet("");
-    QMessageBox::information(this, "Recording Saved",
-                             "Recording saved to:\n" + path);
+    if (path.contains("_motion_recording")) {
+        statusBar()->showMessage("\u23f9 Motion recording saved: " + path, 6000);
+    } else {
+        QMessageBox::information(this, "Recording Saved",
+                                 "Recording saved to:\n" + path);
+    }
 }
 
 void MainWindow::onRecordingError(const QString &message)

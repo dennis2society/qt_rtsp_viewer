@@ -119,6 +119,7 @@ void VideoPlayer::playStream(const QString &url)
 
     mediaPlayer->setSource(QUrl(url));
     mediaPlayer->play();
+    notifyStreamActive(true);  // Tell worker stream is now active
     emit streamStarted();
     emit statusChanged("Playing");
 }
@@ -126,8 +127,16 @@ void VideoPlayer::playStream(const QString &url)
 void VideoPlayer::stopStream()
 {
     mediaPlayer->stop();
+    notifyStreamActive(false);  // Tell worker stream is now inactive
     emit streamStopped();
     emit statusChanged("Stopped");
+}
+
+void VideoPlayer::notifyStreamActive(bool active)
+{
+    if (!worker) return;
+    QMetaObject::invokeMethod(worker, "setStreamActive",
+                              Qt::QueuedConnection, Q_ARG(bool, active));
 }
 
 void VideoPlayer::pauseVideo()

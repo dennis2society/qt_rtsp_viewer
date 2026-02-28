@@ -24,6 +24,8 @@ public:
     
     void setOverlayEnabled(bool enabled);
     bool isOverlayEnabled() const;
+    
+    void setAutoRecordDir(const QString &dir);
 
 signals:
     void effectsChanged();

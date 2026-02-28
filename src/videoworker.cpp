@@ -83,43 +83,49 @@ void VideoWorker::processFrame(const QVideoFrame &frame)
         if (videoEffects->isFaceDetectionEnabled())
             result = openCVProcessor.applyFaceDetection(result, cleanImage);
 
-        if (videoEffects->isMotionGraphEnabled() && !cleanPreviousFrame.isNull()) {
-            double level = openCVProcessor.computeMotionLevel(
+        // Compute motion level once if either motion graph or auto-record needs it
+        const bool needsMotionLevel = !cleanPreviousFrame.isNull()
+            && (videoEffects->isMotionGraphEnabled() || autoRecordEnabled);
+        double motionLevel = 0.0;
+        if (needsMotionLevel)
+            motionLevel = openCVProcessor.computeMotionLevel(
                 cleanImage, cleanPreviousFrame,
                 videoEffects->getMotionGraphSensitivity());
-            // Grid highlight overlay (uses lastCellLevels populated by computeMotionLevel above)
+
+        if (videoEffects->isMotionGraphEnabled() && !cleanPreviousFrame.isNull()) {
             result = openCVProcessor.applyGridMotionOverlay(result);
-            result = openCVProcessor.applyMotionGraphOverlay(result, level);
+            result = openCVProcessor.applyMotionGraphOverlay(result, motionLevel);
+        }
 
 #ifdef HAVE_FFMPEG
-            // --- Auto-record on motion ---
-            if (autoRecordEnabled && !autoRecordDir.isEmpty()) {
-                const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
-                if (level >= kAutoRecTrigger)
-                    lastMotionAboveMs = nowMs;
+        // --- Auto-record on motion ---
+        if (autoRecordEnabled && !autoRecordDir.isEmpty()
+            && streamActive && !cleanPreviousFrame.isNull()) {
+            const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
+            if (motionLevel >= kAutoRecTrigger)
+                lastMotionAboveMs = nowMs;
 
-                if (!autoRecording && level >= kAutoRecTrigger && !recording) {
-                    // Start a new motion-triggered recording
-                    autoRecStartTime = QDateTime::currentDateTime();
-                    QString filename = autoRecStartTime.toString("yyyy-MM-dd_HH:mm:ss")
-                                       + "_motion_recording.mp4";
-                    QString fullPath = autoRecordDir + "/" + filename;
-                    recPath  = fullPath;
-                    recCodec = "libx265";
-                    recFps   = 25.0;
-                    recording     = true;
-                    autoRecording = true;
-                    emit autoRecordingStarted();
-                } else if (autoRecording && (nowMs - lastMotionAboveMs) > autoRecTimeoutMs) {
-                    // Motion dropped below threshold for cooldown period – stop
-                    stopRecording();
-                    QString finishedPath = recPath;
-                    autoRecording = false;
-                    emit autoRecordingStopped(finishedPath);
-                }
+            if (!autoRecording && !recording && motionLevel >= kAutoRecTrigger) {
+                // Start a new motion-triggered recording
+                autoRecStartTime = QDateTime::currentDateTime();
+                QString filename  = autoRecStartTime.toString("yyyy-MM-dd_HH-mm-ss")
+                                    + "_motion_recording.mp4";
+                startRecording(autoRecordDir + "/" + filename, "libx265", 25.0);
+                autoRecording = true;
+                emit autoRecordingStarted();
+            } else if (autoRecording && (nowMs - lastMotionAboveMs) > autoRecTimeoutMs) {
+                // Motion dropped below threshold for timeout duration – finalise file
+                autoRecording = false;
+                stopRecording(); // emits recordingFinished (handled in MainWindow)
             }
-#endif
         }
+
+        // Stream just became inactive while auto-recording – stop immediately
+        if (!streamActive && autoRecording) {
+            autoRecording = false;
+            stopRecording();
+        }
+#endif
 
         cleanPreviousFrame = cleanImage; // store clean frame for next iteration
         frozenFrame = result;
@@ -156,12 +162,10 @@ void VideoWorker::setOverlayEnabled(bool enabled)
 void VideoWorker::setAutoRecordEnabled(bool enabled)
 {
     autoRecordEnabled = enabled;
-    // If disabled while auto-recording, stop the current auto-recording
+    // If disabled while auto-recording, stop immediately
     if (!enabled && autoRecording) {
-        stopRecording();
-        QString finishedPath = recPath;
         autoRecording = false;
-        emit autoRecordingStopped(finishedPath);
+        stopRecording();
     }
 }
 
@@ -173,6 +177,16 @@ void VideoWorker::setAutoRecordDir(const QString &dir)
 void VideoWorker::setAutoRecordTimeout(int seconds)
 {
     autoRecTimeoutMs = qBound(1, seconds, 120) * 1000;
+}
+
+void VideoWorker::setStreamActive(bool active)
+{
+    streamActive = active;
+    // If stream just became inactive and we're auto-recording, stop immediately
+    if (!active && autoRecording) {
+        autoRecording = false;
+        stopRecording();
+    }
 }
 
 void VideoWorker::paintFPSOverlay(QImage &image, const QString &fpsText)

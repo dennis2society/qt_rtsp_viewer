@@ -36,6 +36,7 @@ public:
     void setAutoRecordEnabled(bool enabled);
     void setAutoRecordDir(const QString &dir);
     void setAutoRecordTimeout(int seconds);
+    void notifyStreamActive(bool active);
 
 signals:
     void errorOccurred(const QString &errorMessage);
