@@ -265,6 +265,13 @@ void MainWindow::setupUI()
 
     mainLayout->addLayout(videoLayout, 1);
 
+    // Ensure status bar is always visible
+    if (!statusBar()) {
+        QStatusBar *bar = new QStatusBar(this);
+        setStatusBar(bar);
+    }
+    statusBar()->show();
+
     centralWidget->setLayout(mainLayout);
     videoPlayer->setVideoEffects(videoEffects);
 }
@@ -343,6 +350,7 @@ void MainWindow::onPlayButtonClicked()
     pauseButton->setChecked(false);
     recordButton->setEnabled(true);
     urlInput->setEnabled(false);
+    statusBar()->showMessage("Connecting to stream...", 3000);
 }
 
 void MainWindow::onStopButtonClicked()
@@ -357,6 +365,7 @@ void MainWindow::onStopButtonClicked()
     pauseButton->setEnabled(false);
     pauseButton->setChecked(false);
     urlInput->setEnabled(true);
+    statusBar()->showMessage("Stream stopped", 3000);
 }
 
 void MainWindow::onPauseButtonToggled(bool checked)
@@ -366,6 +375,7 @@ void MainWindow::onPauseButtonToggled(bool checked)
     } else {
         videoPlayer->resumeVideo();
     }
+    statusBar()->showMessage(checked ? "Paused" : "Resumed", 2000);
 }
 
 void MainWindow::onPlayerError(const QString &errorMessage)
@@ -377,6 +387,7 @@ void MainWindow::onPlayerError(const QString &errorMessage)
     pauseButton->setChecked(false);
     recordButton->setEnabled(false);
     urlInput->setEnabled(true);
+    statusBar()->showMessage(errorMessage, 3000);
 }
 
 void MainWindow::onPlayerStatusChanged(const QString &status)
@@ -391,6 +402,7 @@ void MainWindow::onPlayerStatusChanged(const QString &status)
         recordButton->setEnabled(false);
         urlInput->setEnabled(true);
     }
+    statusBar()->showMessage(status, 3000);
 }
 
 void MainWindow::onUrlChanged(const QString &url)
@@ -522,8 +534,9 @@ void MainWindow::onRecordingFinished(const QString &path)
     if (path.contains("_motion_recording")) {
         statusBar()->showMessage("\u23f9 Motion recording saved: " + path, 6000);
     } else {
-        QMessageBox::information(this, "Recording Saved",
-                                 "Recording saved to:\n" + path);
+        //QMessageBox::information(this, "Recording Saved",
+        //                         "Recording saved to:\n" + path);
+        statusBar()->showMessage("\u23f9 Recording saved: " + path, 6000);
     }
 }
 
