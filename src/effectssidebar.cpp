@@ -180,9 +180,8 @@ void EffectsSidebar::setupUI()
     // Auto-record on motion
     QGroupBox *autoRecGroup = new QGroupBox("Recording Options", this);
     QVBoxLayout *autoRecLayout = new QVBoxLayout();
-    QPushButton *dirBtn = new QPushButton("Set Output Directory…", this);
-    autoRecordDirButton = dirBtn;
-    autoRecLayout->addWidget(dirBtn);
+    QPushButton *autoRecordDirButton = new QPushButton("Set Output Directory…", this);
+    autoRecLayout->addWidget(autoRecordDirButton);
     autoRecordDirLabel = new QLabel("(not set)", this);
     autoRecordDirLabel->setWordWrap(true);
     autoRecordDirLabel->setStyleSheet("color: gray; font-size: 10px;");
@@ -212,7 +211,7 @@ void EffectsSidebar::setupUI()
     autoRecGroup->setLayout(autoRecLayout);
     mainLayout->addWidget(autoRecGroup);
     connect(autoRecordCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onAutoRecordToggled);
-    connect(dirBtn, &QPushButton::clicked, this, &EffectsSidebar::onAutoRecordDirClicked);
+    connect(autoRecordDirButton, &QPushButton::clicked, this, &EffectsSidebar::onAutoRecordDirClicked);
     connect(autoRecordTimeoutSlider, QOverload<int>::of(&QSlider::valueChanged),
             this, &EffectsSidebar::onAutoRecordTimeoutChanged);
 
@@ -412,6 +411,10 @@ void EffectsSidebar::loadEffectsSettings()
     autoRecordTimeoutSlider->setValue(settings->value("AutoRecordTimeout", 5).toInt());
     QString autoRecordDir = settings->value("AutoRecordDir", "").toString();
     if (!autoRecordDir.isEmpty()) {
+        setAutoRecordDir(autoRecordDir);
+    }
+    else {
+        autoRecordDir = QDir::homePath() + "/QtRtspViewerRecordings";
         setAutoRecordDir(autoRecordDir);
     }
     
