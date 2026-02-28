@@ -38,11 +38,13 @@ public slots:
     void setPaused(bool p);
     void setOverlayEnabled(bool enabled);
     void setCameraName(const QString &name);
+#ifdef HAVE_FFMPEG
     void startRecording(const QString &path, const QString &codec, double fps);
     void stopRecording();
     void setAutoRecordEnabled(bool enabled);
     void setAutoRecordDir(const QString &dir);
     void setAutoRecordTimeout(int seconds);
+#endif
     void setStreamActive(bool active);
 
 signals:

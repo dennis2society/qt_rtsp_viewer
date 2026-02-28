@@ -165,6 +165,7 @@ void VideoWorker::setCameraName(const QString &name)
     cameraName = name;
 }
 
+#ifdef HAVE_FFMPEG
 void VideoWorker::setAutoRecordEnabled(bool enabled)
 {
     autoRecordEnabled = enabled;
@@ -184,15 +185,18 @@ void VideoWorker::setAutoRecordTimeout(int seconds)
 {
     autoRecTimeoutMs = qBound(1, seconds, 120) * 1000;
 }
+#endif
 
 void VideoWorker::setStreamActive(bool active)
 {
     streamActive = active;
+#ifdef HAVE_FFMPEG
     // If stream just became inactive and we're auto-recording, stop immediately
     if (!active && autoRecording) {
         autoRecording = false;
         stopRecording();
     }
+#endif
 }
 
 void VideoWorker::paintFPSOverlay(QImage &image, const QString &fpsText)
