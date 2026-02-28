@@ -99,13 +99,14 @@ void VideoWorker::processFrame(const QVideoFrame &frame)
 
 #ifdef HAVE_FFMPEG
         // --- Auto-record on motion ---
+        // Only trigger auto-record if NO recording (manual or auto) is currently running
         if (autoRecordEnabled && !autoRecordDir.isEmpty()
-            && streamActive && !cleanPreviousFrame.isNull()) {
+            && streamActive && !cleanPreviousFrame.isNull() && !recording) {
             const qint64 nowMs = QDateTime::currentMSecsSinceEpoch();
             if (motionLevel >= kAutoRecTrigger)
                 lastMotionAboveMs = nowMs;
 
-            if (!autoRecording && !recording && motionLevel >= kAutoRecTrigger) {
+            if (!autoRecording && motionLevel >= kAutoRecTrigger) {
                 // Start a new motion-triggered recording
                 autoRecStartTime = QDateTime::currentDateTime();
                 QString timestamp = autoRecStartTime.toString("yyyy-MM-dd_HH-mm-ss");

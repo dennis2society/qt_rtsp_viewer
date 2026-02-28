@@ -503,17 +503,20 @@ void MainWindow::onRecordButtonToggled(bool checked)
             videoPlayer->startRecording(dlg.filePath(), dlg.codec(), dlg.fps());
         }
     } else {
+        // User clicked stop, don't start another recording
         videoPlayer->stopRecording();
     }
 }
 
 void MainWindow::onRecordingFinished(const QString &path)
 {
-    // Auto-recordings: reset button visual to idle (feature stays enabled via its checkbox)
-    // Manual recordings: uncheck the button fully
-    recordButton->blockSignals(true);
-    recordButton->setChecked(false);
-    recordButton->blockSignals(false);
+    // Only update the button if it's currently checked (manual recording)
+    // This prevents double-stopping the recorder
+    if (recordButton->isChecked()) {
+        recordButton->blockSignals(true);
+        recordButton->setChecked(false);
+        recordButton->blockSignals(false);
+    }
     recordButton->setText("\u23fa Record");
     recordButton->setStyleSheet("");
     if (path.contains("_motion_recording")) {
