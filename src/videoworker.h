@@ -47,11 +47,13 @@ public slots:
 
 signals:
     void frameReady(const QImage &image);
+#ifdef HAVE_FFMPEG
     void recordingStarted();
     void recordingFinished(const QString &path);
     void recordingError(const QString &message);
     void autoRecordingStarted();
     void autoRecordingStopped(const QString &path);
+#endif
 
 private:
     void paintFPSOverlay(QImage &image, const QString &fpsText);

@@ -441,7 +441,9 @@ void MainWindow::saveUrlHistory()
         settings->setArrayIndex(i);
         QString url = urlInput->itemText(i);
         settings->setValue("url", url);
-        settings->setValue("cameraName", cameraNames.value(url, generateCameraName(i)));
+        // strip whitespaces from camera name if it exists, otherwise generate a new one
+        QString cameraName = cameraNames.value(url, generateCameraName(i)).simplified().replace(" ", "_");
+        settings->setValue("cameraName", cameraName);
     }
     settings->endArray();
     settings->endGroup();
