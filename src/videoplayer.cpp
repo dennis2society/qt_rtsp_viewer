@@ -80,7 +80,7 @@ void VideoPlayer::startWorker()
     // Propagate pause state changes to worker
     connect(this,   &VideoPlayer::pauseStateChanged,
             worker, &VideoWorker::setPaused);
-
+#ifdef HAVE_FFMPEG
     // Forward recording signals from worker to VideoPlayer
     connect(worker, &VideoWorker::recordingStarted,
             this,   &VideoPlayer::recordingStarted);
@@ -92,7 +92,7 @@ void VideoPlayer::startWorker()
             this,   &VideoPlayer::autoRecordingStarted);
     connect(worker, &VideoWorker::autoRecordingStopped,
             this,   &VideoPlayer::autoRecordingStopped);
-
+#endif
     workerThread->start();
 }
 
