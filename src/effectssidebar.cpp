@@ -178,15 +178,8 @@ void EffectsSidebar::setupUI()
     connect(faceDetectionCheckBox, &QCheckBox::toggled, this, &EffectsSidebar::onFaceDetectionChanged);
 
     // Auto-record on motion
-    QGroupBox *autoRecGroup = new QGroupBox("Auto-Record on Motion", this);
+    QGroupBox *autoRecGroup = new QGroupBox("Recording Options", this);
     QVBoxLayout *autoRecLayout = new QVBoxLayout();
-    autoRecordCheckBox = new QCheckBox("Enable", this);
-    autoRecordCheckBox->setToolTip(
-        "Automatically start recording when motion level exceeds\n"
-        "the Graph Sensitivity threshold (50 %% of chart scale).\n"
-        "Recording stops after motion drops below threshold for 5 s.");
-    autoRecLayout->addWidget(autoRecordCheckBox);
-
     QPushButton *dirBtn = new QPushButton("Set Output Directory…", this);
     autoRecordDirButton = dirBtn;
     autoRecLayout->addWidget(dirBtn);
@@ -194,6 +187,12 @@ void EffectsSidebar::setupUI()
     autoRecordDirLabel->setWordWrap(true);
     autoRecordDirLabel->setStyleSheet("color: gray; font-size: 10px;");
     autoRecLayout->addWidget(autoRecordDirLabel);
+    autoRecordCheckBox = new QCheckBox("Enable Record on Motion", this);
+    autoRecordCheckBox->setToolTip(
+        "Automatically start recording when motion level exceeds\n"
+        "the Graph Sensitivity threshold (50 %% of chart scale).\n"
+        "Recording stops after motion drops below threshold for 5 s.");
+    autoRecLayout->addWidget(autoRecordCheckBox);
 
     // Timeout slider
     auto *timeoutRow = new QHBoxLayout();
