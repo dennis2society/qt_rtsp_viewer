@@ -85,5 +85,12 @@ private:
     // CSV file for motion logging
     QFile csvFile;
 
-    // Color temperature (-100 warm/reddish to 100 cool/bluish)
-    int colorTemperature = 0;};
+    int colorTemperature = 0;
+    // Set the CSV file path for motion logging (e.g., when recording starts)
+    void setMotionLogPath(const QString &path);
+    // Reset to default motion log path
+    void resetMotionLogPath();
+
+    QString defaultCsvPath = "motion_log.csv";
+    QString currentCsvPath;
+};
